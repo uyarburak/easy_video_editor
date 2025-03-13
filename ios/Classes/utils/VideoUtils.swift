@@ -256,11 +256,11 @@ class VideoUtils {
     }
     
     // MARK: - Scale Video
-    static func scaleVideo(videoPath: String, scaleX: Float, scaleY: Float) throws -> String {
+    static func scaleVideo(videoPath: String, width: Float, height: Float) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
-        guard scaleX > 0, scaleY > 0 else {
+        guard width > 0, height > 0 else {
             throw VideoError.invalidParameters
         }
         
@@ -290,8 +290,8 @@ class VideoUtils {
         let transform = videoTrack.preferredTransform
         
         videoComposition.renderSize = CGSize(
-            width: naturalSize.width * CGFloat(scaleX),
-            height: naturalSize.height * CGFloat(scaleY)
+            width: naturalSize.width * CGFloat(width),
+            height: naturalSize.height * CGFloat(height)
         )
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
         
@@ -366,10 +366,235 @@ class VideoUtils {
         return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition)
     }
     
-    // MARK: - Generate Thumbnail
-    static func generateThumbnail(videoPath: String, timeMs: Int64, quality: Int = 80) throws -> String {
+    // MARK: - Crop Video
+    static func cropVideo(videoPath: String, aspectRatio: String) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
+        }
+        
+        // Validate aspect ratio format (e.g., "16:9")
+        let components = aspectRatio.split(separator: ":")
+        guard components.count == 2,
+              let targetWidth = Float(components[0]),
+              let targetHeight = Float(components[1]),
+              targetWidth > 0, targetHeight > 0 else {
+            throw VideoError.invalidParameters
+        }
+        
+        let targetAspectRatio = targetWidth / targetHeight
+        
+        // Load video asset
+        let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        // Get video dimensions
+        let videoSize = videoTrack.naturalSize
+        let videoAspectRatio = Float(videoSize.width / videoSize.height)
+        
+        // Calculate crop rectangle
+        let cropRect: CGRect
+        if videoAspectRatio > targetAspectRatio {
+            // Video is wider than target, crop sides
+            let newWidth = videoSize.height * CGFloat(targetAspectRatio)
+            let x = (videoSize.width - newWidth) / 2
+            cropRect = CGRect(x: x, y: 0, width: newWidth, height: videoSize.height)
+        } else {
+            // Video is taller than target, crop top/bottom
+            let newHeight = videoSize.width / CGFloat(targetAspectRatio)
+            let y = (videoSize.height - newHeight) / 2
+            cropRect = CGRect(x: 0, y: y, width: videoSize.width, height: newHeight)
+        }
+        
+        // Create composition
+        let composition = AVMutableComposition()
+        guard let compositionVideoTrack = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw VideoError.exportFailed("Failed to create composition video track")
+        }
+        
+        // Add video track
+        try compositionVideoTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: asset.duration),
+            of: videoTrack,
+            at: .zero
+        )
+        
+        // Create video instruction
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+        
+        // Create layer instruction
+        let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+        let transform = videoTrack.preferredTransform
+            .concatenating(CGAffineTransform(translationX: -cropRect.origin.x, y: -cropRect.origin.y))
+        transformer.setTransform(transform, at: .zero)
+        instruction.layerInstructions = [transformer]
+        
+        // Create video composition
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.renderSize = cropRect.size
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        videoComposition.instructions = [instruction]
+        
+        // Export
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("cropped_video_\(Date().timeIntervalSince1970).mp4")
+        
+        guard let exportSession = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetHighestQuality
+        ) else {
+            throw VideoError.exportFailed("Failed to create export session")
+        }
+        
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.videoComposition = videoComposition
+        
+        // Wait for export completion
+        let semaphore = DispatchSemaphore(value: 0)
+        exportSession.exportAsynchronously {
+            semaphore.signal()
+        }
+        semaphore.wait()
+        
+        // Check export status
+        if let error = exportSession.error {
+            throw VideoError.exportFailed(error.localizedDescription)
+        }
+        
+        guard exportSession.status == .completed else {
+            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
+        }
+        
+        return outputURL.path
+    }
+
+    // MARK: - Compress Video
+    static func compressVideo(videoPath: String, targetHeight: Int = 720) throws -> String {
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        
+        let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        // Create composition
+        let composition = AVMutableComposition()
+        guard let compositionVideoTrack = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw VideoError.exportFailed("Failed to create video track")
+        }
+        
+        // Add audio track if available
+        var compositionAudioTrack: AVMutableCompositionTrack?
+        if let audioTrack = asset.tracks(withMediaType: .audio).first {
+            compositionAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+            try compositionAudioTrack?.insertTimeRange(
+                CMTimeRange(start: .zero, duration: asset.duration),
+                of: audioTrack,
+                at: .zero
+            )
+        }
+        
+        // Insert video track
+        try compositionVideoTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: asset.duration),
+            of: videoTrack,
+            at: .zero
+        )
+        
+        // Create video composition
+        let videoComposition = AVMutableVideoComposition()
+        
+        // Calculate target width based on aspect ratio
+        let originalSize = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
+        let originalAspect = abs(originalSize.width / originalSize.height)
+        let targetWidth = Int(CGFloat(targetHeight) * originalAspect)
+        
+        videoComposition.renderSize = CGSize(
+            width: targetWidth,
+            height: targetHeight
+        )
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+        
+        let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+        
+        // Calculate scale to fit target height
+        let scaleFactor = CGFloat(targetHeight) / abs(originalSize.height)
+        let scale = CGAffineTransform(scaleX: scaleFactor, y: scaleFactor)
+        
+        transformer.setTransform(scale, at: .zero)
+        instruction.layerInstructions = [transformer]
+        videoComposition.instructions = [instruction]
+        
+        // Generate output path
+        let outputPath = NSTemporaryDirectory() + "compressed_video_\(Date().timeIntervalSince1970).mp4"
+        let outputURL = URL(fileURLWithPath: outputPath)
+        
+        // Create export session
+        guard let exportSession = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetHighestQuality
+        ) else {
+            throw VideoError.invalidAsset
+        }
+        
+        // Configure export session
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.videoComposition = videoComposition
+        
+        // Wait for export completion
+        let semaphore = DispatchSemaphore(value: 0)
+        exportSession.exportAsynchronously {
+            semaphore.signal()
+        }
+        semaphore.wait()
+        
+        // Check export status
+        if let error = exportSession.error {
+            throw VideoError.exportFailed(error.localizedDescription)
+        }
+        
+        guard exportSession.status == .completed else {
+            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
+        }
+        
+        return outputPath
+    }
+
+    // MARK: - Generate Thumbnail
+    static func generateThumbnail(videoPath: String, positionMs: Int64, width: Int? = nil, height: Int? = nil, quality: Int = 80) throws -> String {
+        // Validate input parameters
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        guard quality >= 0 && quality <= 100 else {
+            throw VideoError.invalidParameters
+        }
+        if let width = width {
+            guard width > 0 else {
+                throw VideoError.invalidParameters
+            }
+        }
+        if let height = height {
+            guard height > 0 else {
+                throw VideoError.invalidParameters
+            }
         }
         
         let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
@@ -377,17 +602,28 @@ class VideoUtils {
         generator.appliesPreferredTrackTransform = true
         
         // Convert milliseconds to CMTime
-        let time = timeMs.toCMTime
+        let time = positionMs.toCMTime
         
         // Validate time range
         let duration = asset.duration.toMilliseconds
-        guard timeMs >= 0 && timeMs <= duration else {
+        guard positionMs >= 0 && positionMs <= duration else {
             throw VideoError.invalidTimeRange
         }
         
         do {
             let imageRef = try generator.copyCGImage(at: time, actualTime: nil)
-            let image = UIImage(cgImage: imageRef)
+            var image = UIImage(cgImage: imageRef)
+            
+            // Scale image if width and height are provided
+            if let width = width, let height = height {
+                let size = CGSize(width: CGFloat(width), height: CGFloat(height))
+                UIGraphicsBeginImageContextWithOptions(size, false, 0)
+                image.draw(in: CGRect(origin: .zero, size: size))
+                if let scaledImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    image = scaledImage
+                }
+                UIGraphicsEndImageContext()
+            }
             
             let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("thumbnail_\(Date().timeIntervalSince1970).jpg")
             

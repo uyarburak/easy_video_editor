@@ -16,7 +16,7 @@ class GenerateThumbnailCommand(private val context: Context) : Command {
     @UnstableApi
     override fun execute(call: MethodCall, result: MethodChannel.Result) {
         val videoPath = call.argument<String>("videoPath")
-        val position = call.argument<Number>("position")?.toLong()
+        val position = call.argument<Number>("positionMs")?.toLong()
         val width = call.argument<Number>("width")?.toInt()
         val height = call.argument<Number>("height")?.toInt()
         val quality = call.argument<Number>("quality")?.toInt() ?: 80

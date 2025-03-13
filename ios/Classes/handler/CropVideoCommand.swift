@@ -1,15 +1,14 @@
 import Flutter
 import AVFoundation
 
-class ScaleVideoCommand: Command {
+class CropVideoCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let arguments = call.arguments as? [String: Any],
               let videoPath = arguments["videoPath"] as? String,
-              let width = arguments["width"] as? NSNumber,
-              let height = arguments["height"] as? NSNumber else {
+              let aspectRatio = arguments["aspectRatio"] as? String else {
             result(FlutterError(
                 code: "INVALID_ARGUMENTS",
-                message: "Missing required arguments: videoPath, width, or height",
+                message: "Missing required arguments: videoPath or aspectRatio",
                 details: nil
             ))
             return
@@ -17,10 +16,9 @@ class ScaleVideoCommand: Command {
         
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let outputPath = try VideoUtils.scaleVideo(
+                let outputPath = try VideoUtils.cropVideo(
                     videoPath: videoPath,
-                    scaleX: width.floatValue,
-                    scaleY: height.floatValue
+                    aspectRatio: aspectRatio
                 )
                 
                 DispatchQueue.main.async {
@@ -29,7 +27,7 @@ class ScaleVideoCommand: Command {
             } catch {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "SCALE_ERROR",
+                        code: "CROP_ERROR",
                         message: error.localizedDescription,
                         details: nil
                     ))
@@ -37,4 +35,4 @@ class ScaleVideoCommand: Command {
             }
         }
     }
-} 
+}

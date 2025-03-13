@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import '../easy_video_editor.dart';
-import '../enums/video_operation_type.dart';
-import '../models/video_operation.dart';
+import '../enums/enums.dart';
+import '../models/models.dart';
 
 /// A builder class for chaining video operations
 class VideoEditorBuilder {
@@ -13,7 +13,7 @@ class VideoEditorBuilder {
   /// Creates a new video editor builder
   ///
   /// [videoPath] is the path to the input video file
-  VideoEditorBuilder(String videoPath)
+  VideoEditorBuilder({required String videoPath})
       : _editor = EasyVideoEditor(),
         _videoPath = videoPath;
 
@@ -21,7 +21,7 @@ class VideoEditorBuilder {
   ///
   /// [startTimeMs] Start time in milliseconds
   /// [endTimeMs] End time in milliseconds
-  VideoEditorBuilder trim(int startTimeMs, int endTimeMs) {
+  VideoEditorBuilder trim({required int startTimeMs, required int endTimeMs}) {
     _operations.add(VideoOperation(
       VideoOperationType.trim,
       {'startTimeMs': startTimeMs, 'endTimeMs': endTimeMs},
@@ -32,7 +32,7 @@ class VideoEditorBuilder {
   /// Adds merge operation
   ///
   /// [otherVideoPaths] List of video paths to merge with current video
-  VideoEditorBuilder merge(List<String> otherVideoPaths) {
+  VideoEditorBuilder merge({required List<String> otherVideoPaths}) {
     _operations.add(VideoOperation(
       VideoOperationType.merge,
       {'paths': otherVideoPaths},
@@ -43,7 +43,7 @@ class VideoEditorBuilder {
   /// Adds speed adjustment operation
   ///
   /// [speed] Speed multiplier (e.g., 0.5 for half speed, 2.0 for double speed)
-  VideoEditorBuilder speed(double speed) {
+  VideoEditorBuilder speed({required double speed}) {
     _operations.add(VideoOperation(
       VideoOperationType.speed,
       {'speed': speed},
@@ -53,29 +53,40 @@ class VideoEditorBuilder {
 
   /// Adds audio removal operation
   VideoEditorBuilder removeAudio() {
-    _operations.add(VideoOperation(VideoOperationType.removeAudio, {}));
+    _operations.add(const VideoOperation(VideoOperationType.removeAudio, {}));
     return this;
   }
 
-  /// Adds scale operation
+  /// Adds crop operation
   ///
-  /// [width] Target width in pixels
-  /// [height] Target height in pixels
-  VideoEditorBuilder scale(int width, int height) {
+  /// [aspectRatio] Target aspect ratio from predefined ratios
+  VideoEditorBuilder crop({required VideoAspectRatio aspectRatio}) {
     _operations.add(VideoOperation(
-      VideoOperationType.scale,
-      {'width': width, 'height': height},
+      VideoOperationType.crop,
+      {'aspectRatio': aspectRatio},
     ));
     return this;
   }
 
   /// Adds rotation operation
   ///
-  /// [degrees] Rotation angle in degrees (should be 90, 180, or 270)
-  VideoEditorBuilder rotate(int degrees) {
+  /// [degree] Rotation angle (90, 180, or 270 degrees)
+  VideoEditorBuilder rotate({required RotationDegree degree}) {
     _operations.add(VideoOperation(
       VideoOperationType.rotate,
-      {'degrees': degrees},
+      {'degrees': degree.value},
+    ));
+    return this;
+  }
+
+  /// Adds compression operation
+  ///
+  /// [resolution] Target resolution for the video (e.g., VideoResolution.p720 for 720p).
+  /// If not specified, defaults to 720p while maintaining aspect ratio.
+  VideoEditorBuilder compress({VideoResolution resolution = VideoResolution.p720}) {
+    _operations.add(VideoOperation(
+      VideoOperationType.compress,
+      {'resolution': resolution},
     ));
     return this;
   }
@@ -123,8 +134,8 @@ class VideoEditorBuilder {
       case VideoOperationType.trim:
         return await _editor.trimVideo(
           inputPath,
-          operation.params['startTimeMs'],
-          operation.params['endTimeMs'],
+          operation.params['startTimeMs'] as int,
+          operation.params['endTimeMs'] as int,
         );
 
       case VideoOperationType.merge:
@@ -137,23 +148,28 @@ class VideoEditorBuilder {
       case VideoOperationType.speed:
         return await _editor.adjustVideoSpeed(
           inputPath,
-          operation.params['speed'],
+          operation.params['speed'] as double,
         );
 
       case VideoOperationType.removeAudio:
         return await _editor.removeAudio(inputPath);
 
-      case VideoOperationType.scale:
-        return await _editor.scaleVideo(
+      case VideoOperationType.crop:
+        return await _editor.cropVideo(
           inputPath,
-          operation.params['width'],
-          operation.params['height'],
+          operation.params['aspectRatio'] as VideoAspectRatio,
         );
 
       case VideoOperationType.rotate:
         return await _editor.rotateVideo(
           inputPath,
-          operation.params['degrees'],
+          operation.params['degrees'] as int,
+        );
+
+      case VideoOperationType.compress:
+        return await _editor.compressVideo(
+          inputPath,
+          resolution: operation.params['resolution'] as VideoResolution,
         );
     }
   }
@@ -170,7 +186,12 @@ class VideoEditorBuilder {
   ///
   /// [timeMs] Time position in milliseconds
   /// [quality] Quality of the thumbnail (0-100)
-  Future<String?> generateThumbnail(int timeMs, int quality) async {
-    return await _editor.generateThumbnail(_videoPath, timeMs, quality);
+  Future<String?> generateThumbnail(
+      {required int positionMs,
+      required int quality,
+      int? height,
+      int? width}) async {
+    return await _editor.generateThumbnail(_videoPath, positionMs, quality,
+        height: height, width: width);
   }
 }

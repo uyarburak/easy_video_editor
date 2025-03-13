@@ -1,4 +1,5 @@
-import 'platform/easy_video_editor_platform_interface.dart';
+import 'enums/enums.dart';
+import 'platform/platform.dart';
 
 /// Main class for video editing operations
 class EasyVideoEditor {
@@ -28,10 +29,12 @@ class EasyVideoEditor {
     return EasyVideoEditorPlatform.instance.removeAudio(videoPath);
   }
 
-  /// Scales a video to the specified dimensions.
-  Future<String?> scaleVideo(String videoPath, int width, int height) {
-    return EasyVideoEditorPlatform.instance
-        .scaleVideo(videoPath, width, height);
+  /// Crops a video to the specified aspect ratio.
+  ///
+  /// [videoPath] is the path to the video file.
+  /// [aspectRatio] is the target aspect ratio in format 'width:height' (e.g., '16:9', '1:1').
+  Future<String?> cropVideo(String videoPath, VideoAspectRatio aspectRatio) {
+    return EasyVideoEditorPlatform.instance.cropVideo(videoPath, aspectRatio);
   }
 
   /// Rotates a video by the specified degrees.
@@ -39,9 +42,30 @@ class EasyVideoEditor {
     return EasyVideoEditorPlatform.instance.rotateVideo(videoPath, degrees);
   }
 
-  /// Generates a thumbnail from a video at the specified time.
-  Future<String?> generateThumbnail(String videoPath, int timeMs, int quality) {
-    return EasyVideoEditorPlatform.instance
-        .generateThumbnail(videoPath, timeMs, quality);
+  /// Generates a thumbnail from a video at the specified position.
+  ///
+  /// [videoPath] is the path to the video file.
+  /// [positionMs] is the position in milliseconds where the thumbnail should be taken.
+  /// [quality] is the quality of the generated thumbnail (0-100).
+  /// [height] optional height of the thumbnail in pixels.
+  /// [width] optional width of the thumbnail in pixels.
+  Future<String?> generateThumbnail(
+      String videoPath, int positionMs, int quality,
+      {int? height, int? width}) {
+    return EasyVideoEditorPlatform.instance.generateThumbnail(
+        videoPath, positionMs, quality,
+        height: height, width: width);
+  }
+
+  /// Compresses a video by adjusting its resolution and bitrate.
+  ///
+  /// [videoPath] is the path to the video file.
+  /// [resolution] target resolution for the video (e.g., VideoResolution.p720 for 720p).
+  /// If not specified, defaults to 720p while maintaining aspect ratio.
+  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) {
+    return EasyVideoEditorPlatform.instance.compressVideo(
+      videoPath,
+      resolution: resolution,
+    );
   }
 }

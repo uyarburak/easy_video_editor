@@ -12,16 +12,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-class AdjustVideoSpeedCommand(private val context: Context) : Command {
+class CompressVideoCommand(private val context: Context) : Command {
     @UnstableApi
     override fun execute(call: MethodCall, result: MethodChannel.Result) {
         val videoPath = call.argument<String>("videoPath")
-        val speedMultiplier = call.argument<Number>("speed")?.toFloat()
+        val targetHeight = call.argument<Number>("targetHeight")?.toInt() ?: 720 // Default to 720p
 
-        if (videoPath == null || speedMultiplier == null) {
+        if (videoPath == null) {
             result.error(
                 "INVALID_ARGUMENTS",
-                "Missing required arguments: videoPath or speedMultiplier",
+                "Missing required argument: videoPath",
                 null
             )
             return
@@ -32,17 +32,17 @@ class AdjustVideoSpeedCommand(private val context: Context) : Command {
         
         methodScope.launch {
             try {
-                val outputPath = VideoUtils.adjustVideoSpeed(
+                val outputPath = VideoUtils.compressVideo(
                     context = context,
                     videoPath = videoPath,
-                    speedMultiplier = speedMultiplier
+                    targetHeight = targetHeight
                 )
                 result.success(outputPath)
             } catch (e: Exception) {
-                result.error("ADJUST_SPEED_ERROR", e.message, null)
+                result.error("COMPRESS_ERROR", e.message, null)
             } finally {
                 methodScope.cancel()
             }
         }
     }
-} 
+}

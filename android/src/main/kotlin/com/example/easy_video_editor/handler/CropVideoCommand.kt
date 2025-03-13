@@ -12,17 +12,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-class ScaleVideoCommand(private val context: Context) : Command {
+class CropVideoCommand(private val context: Context) : Command {
     @UnstableApi
     override fun execute(call: MethodCall, result: MethodChannel.Result) {
         val videoPath = call.argument<String>("videoPath")
-        val scaleX = call.argument<Number>("scaleX")?.toFloat()
-        val scaleY = call.argument<Number>("scaleY")?.toFloat()
+        val aspectRatio = call.argument<String>("aspectRatio")
 
-        if (videoPath == null || scaleX == null || scaleY == null) {
+        if (videoPath == null || aspectRatio == null) {
             result.error(
                 "INVALID_ARGUMENTS",
-                "Missing required arguments: videoPath, scaleX, or scaleY",
+                "Missing required arguments: videoPath or aspectRatio",
                 null
             )
             return
@@ -33,18 +32,17 @@ class ScaleVideoCommand(private val context: Context) : Command {
         
         methodScope.launch {
             try {
-                val outputPath = VideoUtils.scaleVideo(
+                val outputPath = VideoUtils.cropVideo(
                     context = context,
                     videoPath = videoPath,
-                    scaleX = scaleX,
-                    scaleY = scaleY
+                    aspectRatio = aspectRatio
                 )
                 result.success(outputPath)
             } catch (e: Exception) {
-                result.error("SCALE_ERROR", e.message, null)
+                result.error("CROP_ERROR", e.message, null)
             } finally {
                 methodScope.cancel()
             }
         }
     }
-} 
+}

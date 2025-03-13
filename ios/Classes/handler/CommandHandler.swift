@@ -7,9 +7,10 @@ enum MethodName: String {
     case extractAudio = "extractAudio"
     case adjustVideoSpeed = "adjustVideoSpeed"
     case removeAudio = "removeAudio"
-    case scaleVideo = "scaleVideo"
+    case cropVideo = "cropVideo"
     case rotateVideo = "rotateVideo"
     case generateThumbnail = "generateThumbnail"
+    case compressVideo = "compressVideo"
 }
 
 class CommandHandler {
@@ -22,9 +23,10 @@ class CommandHandler {
             .extractAudio: ExtractAudioCommand(),
             .adjustVideoSpeed: AdjustVideoSpeedCommand(),
             .removeAudio: RemoveAudioCommand(),
-            .scaleVideo: ScaleVideoCommand(),
+            .cropVideo: CropVideoCommand(),
             .rotateVideo: RotateVideoCommand(),
-            .generateThumbnail: GenerateThumbnailCommand()
+            .generateThumbnail: GenerateThumbnailCommand(),
+            .compressVideo: CompressVideoCommand()
         ]
     }
     

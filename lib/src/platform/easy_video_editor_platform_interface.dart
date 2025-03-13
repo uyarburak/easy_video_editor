@@ -1,3 +1,4 @@
+import 'package:easy_video_editor/src/enums/enums.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'easy_video_editor_method_channel.dart';
@@ -43,15 +44,21 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
     throw UnimplementedError('removeAudio() has not been implemented.');
   }
 
-  Future<String?> scaleVideo(String videoPath, int width, int height) {
-    throw UnimplementedError('scaleVideo() has not been implemented.');
+  Future<String?> cropVideo(String videoPath, VideoAspectRatio aspectRatio) {
+    throw UnimplementedError('cropVideo() has not been implemented.');
   }
 
   Future<String?> rotateVideo(String videoPath, int degrees) {
     throw UnimplementedError('rotateVideo() has not been implemented.');
   }
 
-  Future<String?> generateThumbnail(String videoPath, int timeMs, int quality) {
+  Future<String?> generateThumbnail(
+      String videoPath, int positionMs, int quality,
+      {int? height, int? width}) {
     throw UnimplementedError('generateThumbnail() has not been implemented.');
+  }
+
+  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) {
+    throw UnimplementedError('compressVideo() has not been implemented.');
   }
 }

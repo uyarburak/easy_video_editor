@@ -5,10 +5,10 @@ class RotateVideoCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let arguments = call.arguments as? [String: Any],
               let videoPath = arguments["videoPath"] as? String,
-              let degrees = arguments["degrees"] as? NSNumber else {
+              let rotationDegrees = arguments["rotationDegrees"] as? NSNumber else {
             result(FlutterError(
                 code: "INVALID_ARGUMENTS",
-                message: "Missing required arguments: videoPath or degrees",
+                message: "Missing required arguments: videoPath or rotationDegrees",
                 details: nil
             ))
             return
@@ -18,7 +18,7 @@ class RotateVideoCommand: Command {
             do {
                 let outputPath = try VideoUtils.rotateVideo(
                     videoPath: videoPath,
-                    rotationDegrees: degrees.floatValue
+                    rotationDegrees: rotationDegrees.floatValue
                 )
                 
                 DispatchQueue.main.async {

@@ -1,4 +1,4 @@
-import '../enums/video_operation_type.dart';
+import 'package:easy_video_editor/src/enums/enums.dart';
 
 /// Represents a video operation with its parameters
 class VideoOperation {

@@ -1,13 +1,18 @@
 name: easy_video_editor
 description: "A lightweight Flutter plugin for video editing without FFmpeg dependency. Trim, merge, adjust speed and more on Android & iOS."
 version: 0.0.1
-homepage: https://github.com/yourusername/easy_video_editor
-repository: https://github.com/yourusername/easy_video_editor
-issue_tracker: https://github.com/yourusername/easy_video_editor/issues
+homepage: https://github.com/iawtk2302/easy_video_editor
+repository: https://github.com/iawtk2302/easy_video_editor
+issue_tracker: https://github.com/iawtk2302/easy_video_editor/issues
 topics:
   - video
   - video-editor
   - video-processing
+  - video-trimming
+  - video-compression
+  - video-cropping
+  - video-speed
+  - video-merge
   - multimedia
 
 environment:

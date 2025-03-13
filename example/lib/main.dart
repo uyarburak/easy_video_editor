@@ -12,8 +12,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: const HomePage(),
+    return const MaterialApp(
+      home: HomePage(),
     );
   }
 }
@@ -30,9 +30,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _trimAndSpeed() async {
     try {
-      final editor = VideoEditorBuilder('/path/to/video.mp4')
-          .trim(0, 5000) // Cắt 5 giây đầu
-          .speed(1.5); // Tăng tốc độ 1.5x
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+          .trim(startTimeMs: 0, endTimeMs: 5000) // Cắt 5 giây đầu
+          .speed(speed: 1.5); // Tăng tốc độ 1.5x
 
       final result = await editor.export();
       setState(() {
@@ -47,7 +47,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _removeAudio() async {
     try {
-      final editor = VideoEditorBuilder('/path/to/video.mp4').removeAudio();
+      final editor =
+          VideoEditorBuilder(videoPath: '/path/to/video.mp4').removeAudio();
 
       final result = await editor.export();
       setState(() {
@@ -60,11 +61,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _scaleAndRotate() async {
+  Future<void> _cropAndRotate() async {
     try {
-      final editor = VideoEditorBuilder('/path/to/video.mp4')
-          .scale(720, 1280) // Đổi kích thước
-          .rotate(90); // Xoay 90 độ
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+          .crop(aspectRatio: VideoAspectRatio.ratio16x9) // Crop to widescreen format
+          .rotate(degree: RotationDegree.degree90);
 
       final result = await editor.export();
       setState(() {
@@ -79,8 +80,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _generateThumbnail() async {
     try {
-      final editor = VideoEditorBuilder('/path/to/video.mp4');
-      final result = await editor.generateThumbnail(1000, 85);
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4');
+      final result =
+          await editor.generateThumbnail(positionMs: 1000, quality: 85);
       setState(() {
         _status = 'Thumbnail generated: $result';
       });
@@ -115,8 +117,8 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: _scaleAndRotate,
-              child: const Text('Scale & Rotate'),
+              onPressed: _cropAndRotate,
+              child: const Text('Crop & Rotate'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(

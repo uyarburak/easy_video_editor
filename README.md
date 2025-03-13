@@ -18,6 +18,10 @@ A powerful Flutter plugin for video editing operations with a simple, chainable 
 - 📐 **Video Transformations**:
   - Scale video to specific dimensions
   - Rotate video by specified degrees
+  - Crop video to specific aspect ratios
+- 🗜️ **Video Compression**:
+  - Compress videos to standard resolutions (360p to 4K)
+  - Maintains aspect ratio while resizing
 - 🖼️ **Thumbnail Generation**: Create thumbnails from video frames
 - 🔗 **Builder Pattern API**: Chain operations for complex video editing
 - 📱 **Platform Support**: Works on both Android and iOS
@@ -45,9 +49,9 @@ flutter pub add easy_video_editor
 import 'package:easy_video_editor/easy_video_editor.dart';
 
 // Create a builder instance
-final editor = VideoEditorBuilder('/path/to/video.mp4')
-  .trim(0, 5000)  // Trim first 5 seconds
-  .speed(1.5)     // Speed up by 1.5x
+final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+  .trim(startTimeMs: 0, endTimeMs: 5000)  // Trim first 5 seconds
+  .speed(speed: 1.5)     // Speed up by 1.5x
   .removeAudio(); // Remove audio
 
 // Export the edited video
@@ -57,29 +61,37 @@ final outputPath = await editor.export();
 ### Advanced Example
 
 ```dart
-final editor = VideoEditorBuilder('/path/to/video.mp4')
+final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   // Trim video
   .trim(startTimeMs: 1000, endTimeMs: 6000)
 
   // Merge with another video
-  .merge(['/path/to/second.mp4'])
+  .merge(otherVideoPaths: ['/path/to/second.mp4'])
 
   // Adjust speed
-  .speed(2.0)
+  .speed(speed: 1.5)
 
-  // Scale dimensions
-  .scale(width: 1280, height: 720)
+  // Compress video
+  .compress(resolution: VideoResolution.p720)
+
+  // Crop video
+  .crop(aspectRatio: VideoAspectRatio.ratio16x9)
 
   // Rotate video
-  .rotate(90);
+  .rotate(degree: RotationDegree.d90);
 
 // Export the final video
 final outputPath = await editor.export();
 
+// Extract audio
+final audioPath = await editor.extractAudio();
+
 // Generate thumbnail
 final thumbnailPath = await editor.generateThumbnail(
-  timeMs: 2000,
-  quality: 85
+  positionMs: 2000,
+  quality: 85,
+  width: 1280,    // optional
+  height: 720     // optional
 );
 ```
 
@@ -89,17 +101,25 @@ final thumbnailPath = await editor.generateThumbnail(
 
 The main class for chaining video operations.
 
+#### Constructor
+
+- `VideoEditorBuilder({required String videoPath})`: Creates a new builder instance
+
 #### Methods
 
-- `trim(int startTimeMs, int endTimeMs)`: Trim video to specified duration
-- `merge(List<String> otherVideoPaths)`: Merge with other videos
-- `speed(double speed)`: Adjust playback speed
+- `trim({required int startTimeMs, required int endTimeMs})`: Trim video to specified duration
+- `merge({required List<String> otherVideoPaths})`: Merge with other videos
+- `speed({required double speed})`: Adjust playback speed (e.g., 0.5 for half speed, 2.0 for double speed)
 - `removeAudio()`: Remove audio track
-- `scale(int width, int height)`: Scale video dimensions
-- `rotate(int degrees)`: Rotate video
+- `rotate({required RotationDegree degree})`: Rotate video by 90, 180, or 270 degrees
+- `crop({required VideoAspectRatio aspectRatio})`: Crop video to predefined aspect ratio
+- `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution
+  - Available resolutions: 360p, 480p, 720p, 1080p, 1440p, 2160p (4K)
+  - Maintains original aspect ratio
 - `export()`: Process all operations and return output path
 - `extractAudio()`: Extract audio to separate file
-- `generateThumbnail(int timeMs, int quality)`: Generate thumbnail
+- `generateThumbnail({required int positionMs, required int quality, int? width, int? height})`: Generate thumbnail
+- `get currentPath`: Gets the current video path
 
 ## Platform Specific Setup
 

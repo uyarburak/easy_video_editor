@@ -1,3 +1,4 @@
+import 'package:easy_video_editor/src/enums/enums.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -55,11 +56,10 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
   }
 
   @override
-  Future<String?> scaleVideo(String videoPath, int width, int height) async {
-    final result = await methodChannel.invokeMethod<String>('scaleVideo', {
+  Future<String?> cropVideo(String videoPath, VideoAspectRatio aspectRatio) async {
+    final result = await methodChannel.invokeMethod<String>('cropVideo', {
       'videoPath': videoPath,
-      'width': width,
-      'height': height,
+      'aspectRatio': aspectRatio.value,
     });
     return result;
   }
@@ -75,12 +75,24 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
 
   @override
   Future<String?> generateThumbnail(
-      String videoPath, int timeMs, int quality) async {
+      String videoPath, int positionMs, int quality,
+      {int? height, int? width}) async {
     final result =
         await methodChannel.invokeMethod<String>('generateThumbnail', {
       'videoPath': videoPath,
-      'timeMs': timeMs,
+      'positionMs': positionMs,
       'quality': quality,
+      if (height != null) 'height': height,
+      if (width != null) 'width': width,
+    });
+    return result;
+  }
+
+  @override
+  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) async {
+    final result = await methodChannel.invokeMethod<String>('compressVideo', {
+      'videoPath': videoPath,
+      'targetHeight': resolution.height,
     });
     return result;
   }

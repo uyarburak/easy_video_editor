@@ -5,14 +5,14 @@
 Pod::Spec.new do |s|
   s.name             = 'easy_video_editor'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.summary          = 'A lightweight Flutter plugin for video editing without FFmpeg dependency'
   s.description      = <<-DESC
-A new Flutter plugin project.
+A lightweight Flutter plugin for video editing without FFmpeg dependency. Trim, merge, adjust speed and more on Android & iOS.
                        DESC
-  s.homepage         = 'http://example.com'
-  s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
-  s.source           = { :path => '.' }
+  s.homepage         = 'https://github.com/iawtk2302/easy_video_editor'
+  s.license          = { :type => 'MIT', :file => '../LICENSE' }
+  s.author           = { 'iawtk2302' => 'iawtk2302@gmail.com' }
+  s.source           = { :git => 'https://github.com/iawtk2302/easy_video_editor.git', :tag => s.version.to_s }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
   s.platform = :ios, '12.0'

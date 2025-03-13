@@ -1,6 +1,7 @@
 /// A Flutter plugin for easy video editing operations
 library easy_video_editor;
 
-export 'src/builder/video_editor_builder.dart';
-export 'src/enums/video_operation_type.dart';
-export 'src/models/video_operation.dart';
+export 'src/builder/builder.dart';
+export 'src/enums/enums.dart';
+export 'src/models/models.dart';
+export 'src/platform/platform.dart';

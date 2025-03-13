@@ -11,9 +11,10 @@ enum class MethodName(val methodName: String) {
     EXTRACT_AUDIO("extractAudio"),
     ADJUST_VIDEO_SPEED("adjustVideoSpeed"),
     REMOVE_AUDIO("removeAudio"),
-    SCALE_VIDEO("scaleVideo"),
+    CROP_VIDEO("cropVideo"),
     ROTATE_VIDEO("rotateVideo"),
-    GENERATE_THUMBNAIL("generateThumbnail");
+    GENERATE_THUMBNAIL("generateThumbnail"),
+    COMPRESS_VIDEO("compressVideo");
 
     companion object {
         fun fromString(method: String): MethodName? {
@@ -29,9 +30,10 @@ class CommandHandler (private val context: Context) {
         MethodName.EXTRACT_AUDIO to ExtractAudioCommand(context),
         MethodName.ADJUST_VIDEO_SPEED to AdjustVideoSpeedCommand(context),
         MethodName.REMOVE_AUDIO to RemoveAudioCommand(context),
-        MethodName.SCALE_VIDEO to ScaleVideoCommand(context),
+        MethodName.CROP_VIDEO to CropVideoCommand(context),
         MethodName.ROTATE_VIDEO to RotateVideoCommand(context),
-        MethodName.GENERATE_THUMBNAIL to GenerateThumbnailCommand(context)
+        MethodName.GENERATE_THUMBNAIL to GenerateThumbnailCommand(context),
+        MethodName.COMPRESS_VIDEO to CompressVideoCommand(context)
     )
 
     fun handleCommand(call: MethodCall, result: MethodChannel.Result) {

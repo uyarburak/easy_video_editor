@@ -1,15 +1,14 @@
 import Flutter
 import AVFoundation
 
-class GenerateThumbnailCommand: Command {
+class CompressVideoCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let arguments = call.arguments as? [String: Any],
               let videoPath = arguments["videoPath"] as? String,
-              let positionMs = arguments["positionMs"] as? NSNumber,
-              let quality = arguments["quality"] as? NSNumber else {
+              let targetHeight = arguments["targetHeight"] as? Int else {
             result(FlutterError(
                 code: "INVALID_ARGUMENTS",
-                message: "Missing required arguments: videoPath, positionMs, or quality",
+                message: "Missing required arguments: videoPath or targetHeight",
                 details: nil
             ))
             return
@@ -17,10 +16,9 @@ class GenerateThumbnailCommand: Command {
         
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let outputPath = try VideoUtils.generateThumbnail(
+                let outputPath = try VideoUtils.compressVideo(
                     videoPath: videoPath,
-                    positionMs: positionMs.int64Value,
-                    quality: quality.intValue
+                    targetHeight: targetHeight
                 )
                 
                 DispatchQueue.main.async {
@@ -34,26 +32,26 @@ class GenerateThumbnailCommand: Command {
                         details: nil
                     ))
                 }
-            } catch VideoError.invalidTimeRange {
+            } catch VideoError.invalidAsset {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "INVALID_TIME",
-                        message: "The specified time is invalid or outside the video duration",
+                        code: "INVALID_ASSET",
+                        message: "Could not create video asset from the provided path",
                         details: nil
                     ))
                 }
-            } catch VideoError.thumbnailGenerationFailed {
+            } catch VideoError.exportFailed(let message) {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "THUMBNAIL_GENERATION_FAILED",
-                        message: "Failed to generate thumbnail from the video",
+                        code: "EXPORT_FAILED",
+                        message: message,
                         details: nil
                     ))
                 }
             } catch {
                 DispatchQueue.main.async {
                     result(FlutterError(
-                        code: "THUMBNAIL_ERROR",
+                        code: "COMPRESS_ERROR",
                         message: error.localizedDescription,
                         details: nil
                     ))
@@ -61,4 +59,4 @@ class GenerateThumbnailCommand: Command {
             }
         }
     }
-} 
+}

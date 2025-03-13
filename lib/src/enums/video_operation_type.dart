@@ -12,9 +12,12 @@ enum VideoOperationType {
   /// Remove audio track
   removeAudio,
 
-  /// Scale video dimensions
-  scale,
+  /// Crop video to specific aspect ratio
+  crop,
 
   /// Rotate video
   rotate,
+
+  /// Compress video
+  compress,
 }

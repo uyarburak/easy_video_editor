@@ -5,9 +5,12 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.effect.SpeedChangeEffect
+import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -22,10 +25,80 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import androidx.core.graphics.scale
 
 @UnstableApi
 class VideoUtils {
     companion object {
+        suspend fun compressVideo(
+            context: Context,
+            videoPath: String,
+            targetHeight: Int = 720, // Default to 720p
+            bitrateMultiplier: Float = 0.5f // Reduce bitrate to 50% of original by default
+        ): String {
+            withContext(Dispatchers.IO) {
+                require(File(videoPath).exists()) { "Input video file does not exist" }
+                require(bitrateMultiplier in 0.1f..1.0f) { "Bitrate multiplier must be between 0.1 and 1.0" }
+                require(targetHeight > 0) { "Target height must be positive" }
+            }
+
+            val outputFile = withContext(Dispatchers.IO) {
+                File(context.cacheDir, "compressed_video_${System.currentTimeMillis()}.mp4")
+                    .apply { if (exists()) delete() }
+            }
+
+            return withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { continuation ->
+                    val mediaItem = MediaItem.fromUri(Uri.fromFile(File(videoPath)))
+                    
+                    val editedMediaItem = EditedMediaItem.Builder(mediaItem)
+                        .setEffects(Effects(
+                             emptyList(),
+                            listOf(Presentation.createForHeight(targetHeight))
+                        ))
+                        .build()
+
+                    val transformer = Transformer.Builder(context)
+                        .setVideoMimeType(MimeTypes.VIDEO_H264)
+                        .addListener(
+                            object : Transformer.Listener {
+                                override fun onCompleted(
+                                    composition: Composition,
+                                    exportResult: ExportResult
+                                ) {
+                                    if (continuation.isActive) {
+                                        continuation.resume(outputFile.absolutePath)
+                                    }
+                                }
+
+                                override fun onError(
+                                    composition: Composition,
+                                    exportResult: ExportResult,
+                                    exportException: ExportException
+                                ) {
+                                    if (continuation.isActive) {
+                                        continuation.resumeWithException(
+                                            VideoException(
+                                                "Failed to compress video: ${exportException.message}",
+                                                exportException
+                                            )
+                                        )
+                                    }
+                                    outputFile.delete()
+                                }
+                            }
+                        )
+                        .build()
+
+                    transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                    continuation.invokeOnCancellation {
+                        transformer.cancel()
+                        outputFile.delete()
+                    }
+                }
+            }
+        }
         suspend fun trimVideo(
                 context: Context,
                 videoPath: String,
@@ -184,7 +257,7 @@ class VideoUtils {
 
             val outputFile =
                     withContext(Dispatchers.IO) {
-                        File(context.cacheDir, "extracted_audio_${System.currentTimeMillis()}.m4a")
+                        File(context.cacheDir, "extracted_audio_${System.currentTimeMillis()}.aac")
                                 .apply { if (exists()) delete() }
                     }
 
@@ -199,6 +272,7 @@ class VideoUtils {
 
                     val transformer =
                             Transformer.Builder(context)
+                                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
                                     .addListener(
                                             object : Transformer.Listener {
                                                 override fun onCompleted(
@@ -261,8 +335,11 @@ class VideoUtils {
                         MediaItem.Builder().setUri(Uri.fromFile(File(videoPath))).build()
 
                     val videoEffect = SpeedChangeEffect(speedMultiplier)
+                    val audio = SonicAudioProcessor()
+                    
+                    audio.setSpeed(speedMultiplier)
 
-                    val effects = Effects(emptyList(), listOf(videoEffect))
+                    val effects = Effects(listOf(audio), listOf(videoEffect))
 
                     val editedMediaItem =
                         EditedMediaItem.Builder(mediaItem).setEffects(effects).build()
@@ -373,21 +450,49 @@ class VideoUtils {
             }
         }
 
-        suspend fun scaleVideo(
+        suspend fun cropVideo(
             context: Context,
             videoPath: String,
-            scaleX: Float,
-            scaleY: Float
+            aspectRatio: String
         ): String {
             // File operations on IO thread
             withContext(Dispatchers.IO) {
                 require(File(videoPath).exists()) { "Input video file does not exist" }
-                require(scaleX > 0 && scaleY > 0) { "Scale values must be greater than 0" }
+                require(aspectRatio.matches(Regex("\\d+:\\d+"))) { "Aspect ratio must be in format 'width:height' (e.g., '16:9')" }
             }
 
             val outputFile = withContext(Dispatchers.IO) {
-                File(context.cacheDir, "scaled_video_${System.currentTimeMillis()}.mp4")
+                File(context.cacheDir, "cropped_video_${System.currentTimeMillis()}.mp4")
                     .apply { if (exists()) delete() }
+            }
+
+            // Get video dimensions
+            val retriever = MediaMetadataRetriever()
+            val (videoWidth, videoHeight) = withContext(Dispatchers.IO) {
+                try {
+                    retriever.setDataSource(videoPath)
+                    val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloat() ?: 0f
+                    val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloat() ?: 0f
+                    width to height
+                } finally {
+                    retriever.release()
+                }
+            }
+
+            // Calculate crop dimensions based on aspect ratio
+            val (targetWidth, targetHeight) = aspectRatio.split(":").map { it.toFloat() }
+            val targetAspectRatio = targetWidth / targetHeight
+            val videoAspectRatio = videoWidth / videoHeight
+
+            // Calculate scale factors to achieve the desired aspect ratio through scaling
+            val (scaleWidth, scaleHeight) = if (videoAspectRatio > targetAspectRatio) {
+                // Video is wider than target, scale height up to crop sides
+                val scale = videoAspectRatio / targetAspectRatio
+                1f to scale
+            } else {
+                // Video is taller than target, scale width up to crop top/bottom
+                val scale = targetAspectRatio / videoAspectRatio
+                scale to 1f
             }
 
             // Transformer operations on Main thread
@@ -403,7 +508,7 @@ class VideoUtils {
                                     emptyList(),
                                     listOf(
                                         ScaleAndRotateTransformation.Builder()
-                                            .setScale(scaleX, scaleY)
+                                            .setScale(scaleWidth, scaleHeight)
                                             .build()
                                     )
                                 )
@@ -431,7 +536,7 @@ class VideoUtils {
                                         if (continuation.isActive) {
                                             continuation.resumeWithException(
                                                 VideoException(
-                                                    "Failed to scale video: ${exportException.message}",
+                                                    "Failed to crop video: ${exportException.message}",
                                                     exportException
                                                 )
                                             )
@@ -535,10 +640,19 @@ class VideoUtils {
         ): String =
             withContext(Dispatchers.IO) {
                 require(File(videoPath).exists()) { "Video file does not exist" }
+                require(positionMs >= 0) { "Position must be non-negative" }
+                require(quality in 0..100) { "Quality must be between 0 and 100" }
+                width?.let { require(it > 0) { "Width must be positive" } }
+                height?.let { require(it > 0) { "Height must be positive" } }
 
                 val retriever = MediaMetadataRetriever()
                 return@withContext try {
                     retriever.setDataSource(videoPath)
+
+                    // Get video duration to validate position
+                    val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+                        ?: throw VideoException("Could not determine video duration")
+                    require(positionMs <= durationMs) { "Position exceeds video duration" }
 
                     val bitmap =
                         retriever.getFrameAtTime(
@@ -549,13 +663,15 @@ class VideoUtils {
 
                     val scaledBitmap =
                         if (width != null && height != null) {
-                            Bitmap.createScaledBitmap(bitmap, width, height, true)
+                            bitmap.scale(width, height)
                         } else {
                             bitmap
                         }
 
                     val outputFile =
                         File(context.cacheDir, "thumbnail_${System.currentTimeMillis()}.jpg")
+                            .apply { if (exists()) delete() } // Delete if exists
+
                     FileOutputStream(outputFile).use { out ->
                         scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
                     }
