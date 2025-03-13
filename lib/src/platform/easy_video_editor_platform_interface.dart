@@ -58,7 +58,8 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
     throw UnimplementedError('generateThumbnail() has not been implemented.');
   }
 
-  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) {
+  Future<String?> compressVideo(String videoPath,
+      {VideoResolution resolution = VideoResolution.p720}) {
     throw UnimplementedError('compressVideo() has not been implemented.');
   }
 }

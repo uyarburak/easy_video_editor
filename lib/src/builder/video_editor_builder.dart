@@ -83,7 +83,8 @@ class VideoEditorBuilder {
   ///
   /// [resolution] Target resolution for the video (e.g., VideoResolution.p720 for 720p).
   /// If not specified, defaults to 720p while maintaining aspect ratio.
-  VideoEditorBuilder compress({VideoResolution resolution = VideoResolution.p720}) {
+  VideoEditorBuilder compress(
+      {VideoResolution resolution = VideoResolution.p720}) {
     _operations.add(VideoOperation(
       VideoOperationType.compress,
       {'resolution': resolution},

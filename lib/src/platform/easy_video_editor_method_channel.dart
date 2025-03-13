@@ -56,7 +56,8 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
   }
 
   @override
-  Future<String?> cropVideo(String videoPath, VideoAspectRatio aspectRatio) async {
+  Future<String?> cropVideo(
+      String videoPath, VideoAspectRatio aspectRatio) async {
     final result = await methodChannel.invokeMethod<String>('cropVideo', {
       'videoPath': videoPath,
       'aspectRatio': aspectRatio.value,
@@ -89,7 +90,8 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
   }
 
   @override
-  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) async {
+  Future<String?> compressVideo(String videoPath,
+      {VideoResolution resolution = VideoResolution.p720}) async {
     final result = await methodChannel.invokeMethod<String>('compressVideo', {
       'videoPath': videoPath,
       'targetHeight': resolution.height,

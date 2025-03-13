@@ -64,7 +64,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _cropAndRotate() async {
     try {
       final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
-          .crop(aspectRatio: VideoAspectRatio.ratio16x9) // Crop to widescreen format
+          .crop(
+              aspectRatio:
+                  VideoAspectRatio.ratio16x9) // Crop to widescreen format
           .rotate(degree: RotationDegree.degree90);
 
       final result = await editor.export();

@@ -62,7 +62,8 @@ class EasyVideoEditor {
   /// [videoPath] is the path to the video file.
   /// [resolution] target resolution for the video (e.g., VideoResolution.p720 for 720p).
   /// If not specified, defaults to 720p while maintaining aspect ratio.
-  Future<String?> compressVideo(String videoPath, {VideoResolution resolution = VideoResolution.p720}) {
+  Future<String?> compressVideo(String videoPath,
+      {VideoResolution resolution = VideoResolution.p720}) {
     return EasyVideoEditorPlatform.instance.compressVideo(
       videoPath,
       resolution: resolution,

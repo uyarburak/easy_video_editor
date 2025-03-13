@@ -1,3 +1,7 @@
+## 0.0.2
+
+- Update README.md
+
 ## 0.0.1
 
 Initial release of Easy Video Editor - A lightweight Flutter plugin for video editing without FFmpeg dependency.

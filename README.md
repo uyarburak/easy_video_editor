@@ -4,7 +4,6 @@ A powerful Flutter plugin for video editing operations with a simple, chainable 
 
 [![pub package](https://img.shields.io/pub/v/easy_video_editor.svg)](https://pub.dev/packages/easy_video_editor)
 [![likes](https://img.shields.io/pub/likes/easy_video_editor)](https://pub.dev/packages/easy_video_editor/score)
-[![popularity](https://img.shields.io/pub/popularity/easy_video_editor)](https://pub.dev/packages/easy_video_editor/score)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -32,7 +31,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.1
+  easy_video_editor: ^0.0.2
 ```
 
 Or install via command line:
