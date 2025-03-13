@@ -134,6 +134,8 @@ Add the following permissions to your `AndroidManifest.xml`:
 
 ### iOS
 
+Requires iOS 13.0 or later.
+
 Add the following keys to your `Info.plist`:
 
 ```xml
@@ -142,10 +144,6 @@ Add the following keys to your `Info.plist`:
 <key>NSPhotoLibraryAddUsageDescription</key>
 <string>This app requires access to the photo library to save edited videos.</string>
 ```
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 

@@ -4,6 +4,8 @@ version: 0.0.1
 homepage: https://github.com/iawtk2302/easy_video_editor
 repository: https://github.com/iawtk2302/easy_video_editor
 issue_tracker: https://github.com/iawtk2302/easy_video_editor/issues
+funding:
+  - https://buymeacoffee.com/iawtk
 topics:
   - video
   - video-editor
@@ -13,6 +15,7 @@ topics:
   - video-cropping
   - video-speed
   - video-merge
+  - audio
   - multimedia
 
 environment:

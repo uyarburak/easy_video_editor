@@ -1,20 +1,43 @@
 ## 0.0.1
 
-Initial release of Easy Video Editor with the following features:
+Initial release of Easy Video Editor - A lightweight Flutter plugin for video editing without FFmpeg dependency.
 
-- Video trimming - Cut videos at specified start and end times
-- Video merging - Combine multiple videos into one
-- Speed adjustment - Change video playback speed
-- Audio operations:
+Key features:
+
+- Video trimming
+
+  - Cut and trim videos at specified timestamps
+  - Real-time preview support
+
+- Video compression
+
+  - Compress videos with customizable quality
+  - Multiple resolution options
+  - Maintain aspect ratio
+
+- Video cropping
+
+  - Crop videos to desired dimensions
+  - Custom aspect ratio support
+
+- Speed adjustment
+
+  - Change video playback speed
+  - Support for both slow motion and fast forward
+
+- Video merging
+
+  - Combine multiple video clips
+  - Seamless transition between clips
+
+- Audio features
+
   - Extract audio from video
-  - Remove audio from video
-- Video transformations:
-  - Scale video to specific dimensions
-  - Rotate video by specified degrees
-- Thumbnail generation - Create thumbnails from video frames
-- Builder pattern API for easy chaining of operations
+  - Mute/unmute video
+
 - Platform support:
+
+  - iOS implementation (iOS 13.0+)
   - Android implementation
-  - iOS implementation
-- Comprehensive example app demonstrating all features
-- Full documentation and API reference
+
+- Example app included with all feature demonstrations
