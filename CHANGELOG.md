@@ -1,3 +1,11 @@
+## 0.0.3
+
+- Fix rotation issue
+- Add option output path for export
+- Add option output path for extract audio
+- Add option output path for generate thumbnail
+- Update README.md
+
 ## 0.0.2
 
 - Update README.md

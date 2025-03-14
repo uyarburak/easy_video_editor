@@ -93,7 +93,10 @@ class VideoEditorBuilder {
   }
 
   /// Executes all operations in sequence and returns the final video path
-  Future<String?> export() async {
+  /// 
+  /// [outputPath] Optional path where the final video will be saved.
+  /// If not provided, a default path will be used.
+  Future<String?> export({String? outputPath}) async {
     String? currentPath = _videoPath;
     String? previousPath;
 
@@ -125,6 +128,23 @@ class VideoEditorBuilder {
       }
     }
 
+    if (currentPath != null && outputPath != null) {
+      try {
+        final inputFile = File(currentPath);
+        await inputFile.copy(outputPath);
+        
+        // Delete the input file if it's not the original video
+        if (currentPath != _videoPath) {
+          await inputFile.delete();
+        }
+        
+        currentPath = outputPath;
+      } catch (e) {
+        print('Error copying to output path: $e');
+        return null;
+      }
+    }
+    
     _videoPath = currentPath ?? _videoPath;
     return currentPath;
   }
@@ -179,20 +199,66 @@ class VideoEditorBuilder {
   String get currentPath => _videoPath;
 
   /// Extracts audio from the current video
-  Future<String?> extractAudio() async {
-    return await _editor.extractAudio(_videoPath);
+  /// 
+  /// [outputPath] Optional path where the extracted audio will be saved.
+  /// If not provided, a default path will be used.
+  Future<String?> extractAudio({String? outputPath}) async {
+    final result = await _editor.extractAudio(_videoPath);
+    
+    if (result != null && outputPath != null) {
+      try {
+        final inputFile = File(result);
+        await inputFile.copy(outputPath);
+        
+        // Delete the original output since we've moved it
+        await inputFile.delete();
+        return outputPath;
+      } catch (e) {
+        print('Error copying audio to output path: $e');
+        return null;
+      }
+    }
+    
+    return result;
   }
 
   /// Generates a thumbnail from the current video
   ///
-  /// [timeMs] Time position in milliseconds
+  /// [positionMs] Time position in milliseconds
   /// [quality] Quality of the thumbnail (0-100)
-  Future<String?> generateThumbnail(
-      {required int positionMs,
-      required int quality,
-      int? height,
-      int? width}) async {
-    return await _editor.generateThumbnail(_videoPath, positionMs, quality,
-        height: height, width: width);
+  /// [height] Optional height of the thumbnail
+  /// [width] Optional width of the thumbnail
+  /// [outputPath] Optional path where the thumbnail will be saved.
+  /// If not provided, a default path will be used.
+  Future<String?> generateThumbnail({
+    required int positionMs,
+    required int quality,
+    int? height,
+    int? width,
+    String? outputPath,
+  }) async {
+    final result = await _editor.generateThumbnail(
+      _videoPath,
+      positionMs,
+      quality,
+      height: height,
+      width: width,
+    );
+    
+    if (result != null && outputPath != null) {
+      try {
+        final inputFile = File(result);
+        await inputFile.copy(outputPath);
+        
+        // Delete the original output since we've moved it
+        await inputFile.delete();
+        return outputPath;
+      } catch (e) {
+        print('Error copying thumbnail to output path: $e');
+        return null;
+      }
+    }
+    
+    return result;
   }
 }

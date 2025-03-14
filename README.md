@@ -31,7 +31,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.2
+  easy_video_editor: ^0.0.3
 ```
 
 Or install via command line:
@@ -106,18 +106,18 @@ The main class for chaining video operations.
 
 #### Methods
 
-- `trim({required int startTimeMs, required int endTimeMs})`: Trim video to specified duration
-- `merge({required List<String> otherVideoPaths})`: Merge with other videos
-- `speed({required double speed})`: Adjust playback speed (e.g., 0.5 for half speed, 2.0 for double speed)
-- `removeAudio()`: Remove audio track
-- `rotate({required RotationDegree degree})`: Rotate video by 90, 180, or 270 degrees
-- `crop({required VideoAspectRatio aspectRatio})`: Crop video to predefined aspect ratio
-- `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution
+- `trim({required int startTimeMs, required int endTimeMs})`: Trim video to specified duration (outputs MP4)
+- `merge({required List<String> otherVideoPaths})`: Merge with other videos (outputs MP4)
+- `speed({required double speed})`: Adjust playback speed (e.g., 0.5 for half speed, 2.0 for double speed) (outputs MP4)
+- `removeAudio()`: Remove audio track (outputs MP4)
+- `rotate({required RotationDegree degree})`: Rotate video by 90, 180, or 270 degrees (outputs MP4)
+- `crop({required VideoAspectRatio aspectRatio})`: Crop video to predefined aspect ratio (outputs MP4)
+- `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution (outputs MP4)
   - Available resolutions: 360p, 480p, 720p, 1080p, 1440p, 2160p (4K)
   - Maintains original aspect ratio
-- `export()`: Process all operations and return output path
-- `extractAudio()`: Extract audio to separate file
-- `generateThumbnail({required int positionMs, required int quality, int? width, int? height})`: Generate thumbnail
+- `export({String? outputPath})`: Process all operations and return output path (outputs MP4)
+- `extractAudio({String? outputPath})`: Extract audio to separate file (outputs M4A on iOS, AAC on Android)
+- `generateThumbnail({required int positionMs, required int quality, int? width, int? height, String? outputPath})`: Generate thumbnail (outputs JPEG)
 - `get currentPath`: Gets the current video path
 
 ## Platform Specific Setup
@@ -144,6 +144,23 @@ Add the following keys to your `Info.plist`:
 <string>This app requires access to the photo library to save edited videos.</string>
 ```
 
+## 🤝 Contributing
+
+Contributions are always welcome! Here's how you can help:
+
+1. 🐛 Report bugs by opening an issue
+2. 💡 Suggest new features or improvements
+3. 📝 Improve documentation
+4. 🔧 Submit pull requests
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📧 Author
+
+[iawtk2302](https://github.com/iawtk2302)
+
+## ⭐ Show Your Support
+
+If you find this plugin helpful, please give it a star on [GitHub](https://github.com/iawtk2302/easy_video_editor)! It helps others discover the plugin and motivates me to keep improving it.

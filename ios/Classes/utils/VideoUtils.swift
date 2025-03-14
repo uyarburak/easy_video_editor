@@ -340,15 +340,49 @@ class VideoUtils {
             at: .zero
         )
         
+        // Get the original video track info
+        let originalSize = videoTrack.naturalSize
+        let originalTransform = videoTrack.preferredTransform
+        
+        // Calculate the actual display size
+        let videoFrame = originalSize.applying(originalTransform)
+        let actualSize = CGSize(width: abs(videoFrame.width), height: abs(videoFrame.height))
+        
+        // Get the natural size of the video
         let naturalSize = videoTrack.naturalSize
-        var transform = videoTrack.preferredTransform
         
-        transform = transform.rotated(by: CGFloat(rotationDegrees) * .pi / 180)
-        
+        // Calculate dimensions for rotation
         let isPortrait = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-        videoComposition.renderSize = isPortrait ?
+        let finalSize = isPortrait ? 
             CGSize(width: naturalSize.height, height: naturalSize.width) :
             naturalSize
+        
+        // Set the render size
+        videoComposition.renderSize = finalSize
+        
+        // Calculate transform based on rotation
+        var transform = CGAffineTransform.identity
+        
+        // Apply rotation transform
+        switch Int(rotationDegrees) {
+        case 90:
+            // For 90-degree clockwise rotation
+            transform = transform
+                .translatedBy(x: naturalSize.height, y: 0)
+                .rotated(by: .pi / 2)
+        case -90, 270:
+            // For 90-degree counter-clockwise rotation
+            transform = transform
+                .translatedBy(x: 0, y: naturalSize.width)
+                .rotated(by: -.pi / 2)
+        case 180:
+            // For 180-degree rotation
+            transform = transform
+                .translatedBy(x: naturalSize.width, y: naturalSize.height)
+                .rotated(by: .pi)
+        default:
+            break
+        }
         
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
         
@@ -360,6 +394,9 @@ class VideoUtils {
         
         instruction.layerInstructions = [layerInstruction]
         videoComposition.instructions = [instruction]
+        
+        // Ensure proper rendering
+        videoComposition.renderScale = 1.0
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("rotated_video_\(Date().timeIntervalSince1970).mp4")
         
