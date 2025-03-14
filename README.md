@@ -54,7 +54,9 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   .removeAudio(); // Remove audio
 
 // Export the edited video
-final outputPath = await editor.export();
+final outputPath = await editor.export(
+  outputPath: '/path/to/output.mp4' // Optional output path
+);
 ```
 
 ### Advanced Example
@@ -80,17 +82,22 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   .rotate(degree: RotationDegree.d90);
 
 // Export the final video
-final outputPath = await editor.export();
+final outputPath = await editor.export(
+  outputPath: '/path/to/output.mp4' // Optional output path
+);
 
 // Extract audio
-final audioPath = await editor.extractAudio();
+final audioPath = await editor.extractAudio(
+  outputPath: '/path/to/output.m4a' // Optional output path, iOS outputs M4A format
+);
 
 // Generate thumbnail
 final thumbnailPath = await editor.generateThumbnail(
   positionMs: 2000,
   quality: 85,
   width: 1280,    // optional
-  height: 720     // optional
+  height: 720,    // optional
+  outputPath: '/path/to/thumbnail.jpg' // Optional output path
 );
 ```
 
