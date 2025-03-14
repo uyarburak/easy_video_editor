@@ -93,7 +93,7 @@ class VideoEditorBuilder {
   }
 
   /// Executes all operations in sequence and returns the final video path
-  /// 
+  ///
   /// [outputPath] Optional path where the final video will be saved.
   /// If not provided, a default path will be used.
   Future<String?> export({String? outputPath}) async {
@@ -132,19 +132,19 @@ class VideoEditorBuilder {
       try {
         final inputFile = File(currentPath);
         await inputFile.copy(outputPath);
-        
+
         // Delete the input file if it's not the original video
         if (currentPath != _videoPath) {
           await inputFile.delete();
         }
-        
+
         currentPath = outputPath;
       } catch (e) {
         print('Error copying to output path: $e');
         return null;
       }
     }
-    
+
     _videoPath = currentPath ?? _videoPath;
     return currentPath;
   }
@@ -199,17 +199,17 @@ class VideoEditorBuilder {
   String get currentPath => _videoPath;
 
   /// Extracts audio from the current video
-  /// 
+  ///
   /// [outputPath] Optional path where the extracted audio will be saved.
   /// If not provided, a default path will be used.
   Future<String?> extractAudio({String? outputPath}) async {
     final result = await _editor.extractAudio(_videoPath);
-    
+
     if (result != null && outputPath != null) {
       try {
         final inputFile = File(result);
         await inputFile.copy(outputPath);
-        
+
         // Delete the original output since we've moved it
         await inputFile.delete();
         return outputPath;
@@ -218,7 +218,7 @@ class VideoEditorBuilder {
         return null;
       }
     }
-    
+
     return result;
   }
 
@@ -244,12 +244,12 @@ class VideoEditorBuilder {
       height: height,
       width: width,
     );
-    
+
     if (result != null && outputPath != null) {
       try {
         final inputFile = File(result);
         await inputFile.copy(outputPath);
-        
+
         // Delete the original output since we've moved it
         await inputFile.delete();
         return outputPath;
@@ -258,7 +258,7 @@ class VideoEditorBuilder {
         return null;
       }
     }
-    
+
     return result;
   }
 }
