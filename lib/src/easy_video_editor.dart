@@ -1,4 +1,5 @@
 import 'enums/enums.dart';
+import 'models/models.dart';
 import 'platform/platform.dart';
 
 /// Main class for video editing operations
@@ -68,5 +69,27 @@ class EasyVideoEditor {
       videoPath,
       resolution: resolution,
     );
+  }
+
+  /// Cancels any currently running operation.
+  ///
+  /// Returns true if an operation was successfully canceled, false otherwise.
+  Future<bool> cancelOperation() {
+    return EasyVideoEditorPlatform.instance.cancelOperation();
+  }
+
+  /// Retrieves metadata information about a video file.
+  ///
+  /// [videoPath] is the path to the video file.
+  ///
+  /// Returns a [VideoMetadata] object containing information about the video:
+  /// - Duration (in milliseconds)
+  /// - Width and Height (in pixels)
+  /// - Title (if available)
+  /// - Author (if available)
+  /// - Orientation (rotation in degrees: 0, 90, 180, 270)
+  /// - File size (in bytes)
+  static Future<VideoMetadata> getVideoMetadata(String videoPath) {
+    return EasyVideoEditorPlatform.instance.getVideoMetadata(videoPath);
   }
 }

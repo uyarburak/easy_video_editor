@@ -1,5 +1,6 @@
 import Flutter
 import AVFoundation
+import Foundation
 
 class RemoveAudioCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -13,22 +14,46 @@ class RemoveAudioCommand: Command {
             return
         }
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let outputPath = try VideoUtils.removeAudioFromVideo(videoPath: videoPath)
-                
+        let operationId = OperationManager.shared.generateOperationId()
+        
+        lazy var workItem: DispatchWorkItem = DispatchWorkItem {
+            // Check if operation was canceled before starting
+            if workItem.isCancelled {
                 DispatchQueue.main.async {
-                    result(outputPath)
+                    result(nil)
+                }
+                return
+            }
+
+            do {
+                let outputPath = try VideoUtils.removeAudioFromVideo(videoPath: videoPath, workItem: workItem)
+
+                // Check if operation was canceled after processing
+                if workItem.isCancelled {
+                    try? FileManager.default.removeItem(atPath: outputPath)
+                    DispatchQueue.main.async {
+                        result(nil)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        result(outputPath)
+                    }
                 }
             } catch {
+                // Silently handle all errors without showing error messages
                 DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "REMOVE_AUDIO_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    ))
+                    result(nil)
                 }
             }
+
+            // Cancel the operation when done
+            OperationManager.shared.cancelOperation(operationId)
         }
+
+        // Register workItem to be able to cancel
+        OperationManager.shared.registerOperation(id: operationId, workItem: workItem)
+
+        // Start the operation
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-} 
+}

@@ -1,5 +1,6 @@
 import Flutter
 import AVFoundation
+import Foundation
 
 class ExtractAudioCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -12,23 +13,47 @@ class ExtractAudioCommand: Command {
             ))
             return
         }
+
+        let operationId = OperationManager.shared.generateOperationId()
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let outputPath = try VideoUtils.extractAudio(videoPath: videoPath)
-                
+        lazy var workItem: DispatchWorkItem = DispatchWorkItem {
+            // Check if operation was canceled before starting
+            if workItem.isCancelled {
                 DispatchQueue.main.async {
-                    result(outputPath)
+                    result(nil)
+                }
+                return
+            }
+
+            do {
+                let outputPath = try VideoUtils.extractAudio(videoPath: videoPath, workItem: workItem)
+
+                // Check if operation was canceled after processing
+                if workItem.isCancelled {
+                    try? FileManager.default.removeItem(atPath: outputPath)
+                    DispatchQueue.main.async {
+                        result(nil)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        result(outputPath)
+                    }
                 }
             } catch {
+                // Silently handle errors without showing error message
                 DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "EXTRACT_AUDIO_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    ))
+                    result(nil)
                 }
             }
+
+            // Cancel operation when completed
+            OperationManager.shared.cancelOperation(operationId)
         }
+
+        // Register operation
+        OperationManager.shared.registerOperation(id: operationId, workItem: workItem)
+
+        // Start the operation
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-} 
+}

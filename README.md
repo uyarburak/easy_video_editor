@@ -22,6 +22,7 @@ A powerful Flutter plugin for video editing operations with a simple, chainable 
   - Compress videos to standard resolutions (360p to 4K)
   - Maintains aspect ratio while resizing
 - 🖼️ **Thumbnail Generation**: Create thumbnails from video frames
+- 📊 **Video Metadata**: Retrieve detailed information about video files
 - 🔗 **Builder Pattern API**: Chain operations for complex video editing
 - 📱 **Platform Support**: Works on both Android and iOS
 
@@ -31,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.3
+  easy_video_editor: ^0.0.4
 ```
 
 Or install via command line:
@@ -99,6 +100,25 @@ final thumbnailPath = await editor.generateThumbnail(
   height: 720,    // optional
   outputPath: '/path/to/thumbnail.jpg' // Optional output path
 );
+
+// Get video metadata
+final metadata = await editor.getVideoMetadata();
+print('Duration: ${metadata.duration} ms');
+print('Dimensions: ${metadata.width}x${metadata.height}');
+print('Orientation: ${metadata.rotation}°');
+print('File size: ${metadata.fileSize} bytes');
+```
+
+### Cancel Operation
+
+```dart
+final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4');
+
+// Start an operation
+final outputPath = await editor.trim(startTimeMs: 0, endTimeMs: 5000);
+
+// Cancel the operation
+await editor.cancel();
 ```
 
 ## API Reference
@@ -125,6 +145,7 @@ The main class for chaining video operations.
 - `export({String? outputPath})`: Process all operations and return output path (outputs MP4)
 - `extractAudio({String? outputPath})`: Extract audio to separate file (outputs M4A on iOS, AAC on Android)
 - `generateThumbnail({required int positionMs, required int quality, int? width, int? height, String? outputPath})`: Generate thumbnail (outputs JPEG)
+- `getVideoMetadata()`: Retrieves detailed metadata about the current video file
 - `get currentPath`: Gets the current video path
 
 ## Platform Specific Setup

@@ -6,16 +6,14 @@ import '../models/models.dart';
 
 /// A builder class for chaining video operations
 class VideoEditorBuilder {
-  final EasyVideoEditor _editor;
+  static final EasyVideoEditor _editor = EasyVideoEditor();
   String _videoPath;
   final List<VideoOperation> _operations = [];
 
   /// Creates a new video editor builder
   ///
   /// [videoPath] is the path to the input video file
-  VideoEditorBuilder({required String videoPath})
-      : _editor = EasyVideoEditor(),
-        _videoPath = videoPath;
+  VideoEditorBuilder({required String videoPath}) : _videoPath = videoPath;
 
   /// Adds trim operation
   ///
@@ -198,6 +196,14 @@ class VideoEditorBuilder {
   /// Gets the current video path
   String get currentPath => _videoPath;
 
+  /// Cancels any ongoing operation
+  ///
+  /// Returns true if an operation was canceled, false if no operation was in progress
+  static Future<bool> cancel() async {
+    final result = await _editor.cancelOperation();
+    return result;
+  }
+
   /// Extracts audio from the current video
   ///
   /// [outputPath] Optional path where the extracted audio will be saved.
@@ -260,5 +266,18 @@ class VideoEditorBuilder {
     }
 
     return result;
+  }
+
+  /// Retrieves metadata information about the current video file.
+  ///
+  /// Returns a [VideoMetadata] object containing information about the video:
+  /// - Duration (in milliseconds)
+  /// - Width and Height (in pixels)
+  /// - Title (if available)
+  /// - Author (if available)
+  /// - Orientation (rotation in degrees: 0, 90, 180, 270)
+  /// - File size (in bytes)
+  Future<VideoMetadata> getVideoMetadata() async {
+    return await EasyVideoEditor.getVideoMetadata(_videoPath);
   }
 }

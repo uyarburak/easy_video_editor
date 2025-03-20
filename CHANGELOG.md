@@ -1,3 +1,8 @@
+## 0.0.4
+
+- Add method to retrieve video metadata (duration, dimensions, title, author, orientation, file size)
+- Add method to cancel current operation
+
 ## 0.0.3
 
 - Fix rotation issue

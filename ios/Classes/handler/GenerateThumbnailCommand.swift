@@ -1,5 +1,6 @@
 import Flutter
 import AVFoundation
+import Foundation
 
 class GenerateThumbnailCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -15,50 +16,50 @@ class GenerateThumbnailCommand: Command {
             return
         }
         
-        DispatchQueue.global(qos: .userInitiated).async {
+        let operationId = OperationManager.shared.generateOperationId()
+        
+        lazy var workItem: DispatchWorkItem = DispatchWorkItem { 
+            if workItem.isCancelled {
+                DispatchQueue.main.async {
+                    result(nil)
+                }
+                return
+            }
+
             do {
                 let outputPath = try VideoUtils.generateThumbnail(
                     videoPath: videoPath,
                     positionMs: positionMs.int64Value,
-                    quality: quality.intValue
+                    quality: quality.intValue,
+                    workItem: workItem
                 )
-                
-                DispatchQueue.main.async {
-                    result(outputPath)
-                }
-            } catch VideoError.fileNotFound {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "FILE_NOT_FOUND",
-                        message: "The video file was not found at the specified path",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.invalidTimeRange {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "INVALID_TIME",
-                        message: "The specified time is invalid or outside the video duration",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.thumbnailGenerationFailed {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "THUMBNAIL_GENERATION_FAILED",
-                        message: "Failed to generate thumbnail from the video",
-                        details: nil
-                    ))
+
+                if workItem.isCancelled {
+                    try? FileManager.default.removeItem(atPath: outputPath)
+                    DispatchQueue.main.async {
+                        result(nil)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        result(outputPath)
+                    }
                 }
             } catch {
+                // Silently handle errors without showing error message
                 DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "THUMBNAIL_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    ))
+                    result(nil)
                 }
             }
+
+            // Cancel operation when completed
+            OperationManager.shared.cancelOperation(operationId)
         }
+
+        // Register operation
+        OperationManager.shared.registerOperation(id: operationId, workItem: workItem)
+
+        // Start the operation
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-} 
+}
+

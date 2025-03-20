@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import java.io.File
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.audio.SonicAudioProcessor
@@ -18,7 +19,6 @@ import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
-import java.io.File
 import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -30,6 +30,54 @@ import androidx.core.graphics.scale
 @UnstableApi
 class VideoUtils {
     companion object {
+        /**
+         * Gets metadata information about a video file
+         * 
+         * @param context Android context
+         * @param videoPath Path to the video file
+         * @return VideoMetadata object containing video information
+         */
+        suspend fun getVideoMetadata(context: Context, videoPath: String): VideoMetadata {
+            return withContext(Dispatchers.IO) {
+                val videoFile = File(videoPath)
+                require(videoFile.exists()) { "Video file does not exist" }
+                
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(videoPath)
+                    
+                    // Get basic metadata
+                    val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
+                    val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+                    val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+                    
+                    // Get title and author (may be null)
+                    val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                    val author = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) 
+                        ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_AUTHOR)
+                    
+                    // Get rotation
+                    val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0
+                    
+                    // Get file size
+                    val fileSize = videoFile.length()
+                    
+                    VideoMetadata(
+                        duration = duration,
+                        width = width,
+                        height = height,
+                        title = title,
+                        author = author,
+                        rotation = rotation,
+                        fileSize = fileSize
+                    )
+                } finally {
+                    retriever.release()
+                }
+            }
+        }
+        
+        
         suspend fun compressVideo(
             context: Context,
             videoPath: String,
@@ -693,3 +741,16 @@ class VideoException : Exception {
     constructor(message: String) : super(message)
     constructor(message: String, cause: Throwable) : super(message, cause)
 }
+
+/**
+ * Data class representing video metadata
+ */
+data class VideoMetadata(
+    val duration: Long, // Duration in milliseconds
+    val width: Int,
+    val height: Int,
+    val title: String?,
+    val author: String?,
+    val rotation: Int, // 0, 90, 180, or 270 degrees
+    val fileSize: Long // in bytes
+)

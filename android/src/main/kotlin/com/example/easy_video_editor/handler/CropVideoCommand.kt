@@ -3,6 +3,7 @@ package com.example.easy_video_editor.handler
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.example.easy_video_editor.command.Command
+import com.example.easy_video_editor.utils.OperationManager
 import com.example.easy_video_editor.utils.VideoUtils
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -29,6 +30,10 @@ class CropVideoCommand(private val context: Context) : Command {
 
         // Create a new scope that's tied only to this method call
         val methodScope = CoroutineScope(Dispatchers.Main + Job())
+
+        // Register with operation manager for cancellation support
+        val operationId = OperationManager.generateOperationId()
+        OperationManager.registerOperation(operationId, methodScope)
         
         methodScope.launch {
             try {
@@ -39,8 +44,16 @@ class CropVideoCommand(private val context: Context) : Command {
                 )
                 result.success(outputPath)
             } catch (e: Exception) {
-                result.error("CROP_ERROR", e.message, null)
+                // Check if the error is due to user cancellation
+                if (e.message?.contains("canceled by user") == true) {
+                    // This is a user cancellation, so just return success with a null path
+                    result.success(null)
+                } else {
+                    // This is a genuine error, return it
+                    result.error("CROP_ERROR", e.message, null)
+                }
             } finally {
+                OperationManager.cancelOperation(operationId)
                 methodScope.cancel()
             }
         }
