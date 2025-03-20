@@ -1,6 +1,7 @@
 import AVFoundation
 import UIKit
 import Foundation
+import AVKit
 
 enum VideoError: Error {
     case fileNotFound
@@ -14,8 +15,45 @@ enum VideoError: Error {
 
 class VideoUtils {
     
+    // MARK: - Helper Methods
+    private static func exportWithCancellation(exportSession: AVAssetExportSession, workItem: DispatchWorkItem?) throws {
+        // Set up periodic cancellation check
+        var isCancelled = false
+        let checkInterval: TimeInterval = 0.1 // Check every 100ms
+        
+        // Start export
+        exportSession.exportAsynchronously {}
+        
+        // Wait for export completion or cancellation
+        while exportSession.status == .waiting || exportSession.status == .exporting {
+            if let workItem = workItem, workItem.isCancelled {
+                exportSession.cancelExport()
+                isCancelled = true
+                break
+            }
+            Thread.sleep(forTimeInterval: checkInterval)
+        }
+        
+        // Handle cancellation
+        if isCancelled {
+            if let outputURL = exportSession.outputURL {
+                try? FileManager.default.removeItem(at: outputURL)
+            }
+            throw VideoError.exportFailed("Export cancelled")
+        }
+        
+        // Check export status
+        if let error = exportSession.error {
+            throw VideoError.exportFailed(error.localizedDescription)
+        }
+        
+        guard exportSession.status == .completed else {
+            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
+        }
+    }
+    
     // MARK: - Trim Video
-    static func trimVideo(videoPath: String, startTimeMs: Int64, endTimeMs: Int64) throws -> String {
+    static func trimVideo(videoPath: String, startTimeMs: Int64, endTimeMs: Int64, workItem: DispatchWorkItem? = nil) throws -> String {
         let url = URL(fileURLWithPath: videoPath)
         
         let asset = AVAsset(url: url)
@@ -49,27 +87,13 @@ class VideoUtils {
         exportSession.outputFileType = .mp4
         exportSession.timeRange = timeRange
         
-        // Wait for export completion
-        let semaphore = DispatchSemaphore(value: 0)
-        exportSession.exportAsynchronously {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        // Check export status
-        if let error = exportSession.error {
-            throw VideoError.exportFailed(error.localizedDescription)
-        }
-        
-        guard exportSession.status == .completed else {
-            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
-        }
-        
+        // Export with cancellation support
+        try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputPath
     }
     
     // MARK: - Merge Videos
-    static func mergeVideos(videoPaths: [String]) throws -> String {
+    static func mergeVideos(videoPaths: [String], workItem: DispatchWorkItem? = nil) throws -> String {
         guard !videoPaths.isEmpty else {
             throw VideoError.invalidParameters
         }
@@ -113,11 +137,11 @@ class VideoUtils {
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("merged_video_\(Date().timeIntervalSince1970).mp4")
         
-        return try export(composition: composition, outputURL: outputURL)
+        return try export(composition: composition, outputURL: outputURL, workItem: workItem)
     }
     
     // MARK: - Extract Audio
-    static func extractAudio(videoPath: String) throws -> String {
+    static func extractAudio(videoPath: String, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -138,25 +162,19 @@ class VideoUtils {
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("extracted_audio_\(Date().timeIntervalSince1970).m4a")
         
-        let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetAppleM4A)
-        exportSession?.outputURL = outputURL
-        exportSession?.outputFileType = .m4a
-        
-        let semaphore = DispatchSemaphore(value: 0)
-        exportSession?.exportAsynchronously {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        guard exportSession?.status == .completed else {
-            throw VideoError.exportFailed(exportSession?.error?.localizedDescription ?? "Unknown error")
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetAppleM4A) else {
+            throw VideoError.invalidAsset
         }
         
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .m4a
+        
+        try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputURL.path
     }
     
     // MARK: - Adjust Video Speed
-    static func adjustVideoSpeed(videoPath: String, speed: Float) throws -> String {
+    static func adjustVideoSpeed(videoPath: String, speed: Float, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -209,21 +227,7 @@ class VideoUtils {
             exportSession.outputURL = outputURL
             exportSession.outputFileType = .mp4
             
-            // Wait for export completion
-            let semaphore = DispatchSemaphore(value: 0)
-            exportSession.exportAsynchronously {
-                semaphore.signal()
-            }
-            semaphore.wait()
-            
-            if let error = exportSession.error {
-                throw VideoError.exportFailed(error.localizedDescription)
-            }
-            
-            guard exportSession.status == .completed else {
-                throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
-            }
-            
+            try exportWithCancellation(exportSession: exportSession, workItem: workItem)
             return outputPath
         } catch {
             throw VideoError.exportFailed(error.localizedDescription)
@@ -231,7 +235,7 @@ class VideoUtils {
     }
     
     // MARK: - Remove Audio
-    static func removeAudioFromVideo(videoPath: String) throws -> String {
+    static func removeAudioFromVideo(videoPath: String, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -252,11 +256,11 @@ class VideoUtils {
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("muted_video_\(Date().timeIntervalSince1970).mp4")
         
-        return try export(composition: composition, outputURL: outputURL)
+        return try export(composition: composition, outputURL: outputURL, workItem: workItem)
     }
     
     // MARK: - Scale Video
-    static func scaleVideo(videoPath: String, width: Float, height: Float) throws -> String {
+    static func scaleVideo(videoPath: String, width: Float, height: Float, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -306,11 +310,11 @@ class VideoUtils {
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("scaled_video_\(Date().timeIntervalSince1970).mp4")
         
-        return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition)
+        return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition, workItem: workItem)
     }
     
     // MARK: - Rotate Video
-    static func rotateVideo(videoPath: String, rotationDegrees: Float) throws -> String {
+    static func rotateVideo(videoPath: String, rotationDegrees: Float, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -400,11 +404,11 @@ class VideoUtils {
         
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("rotated_video_\(Date().timeIntervalSince1970).mp4")
         
-        return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition)
+        return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition, workItem: workItem)
     }
     
     // MARK: - Crop Video
-    static func cropVideo(videoPath: String, aspectRatio: String) throws -> String {
+    static func cropVideo(videoPath: String, aspectRatio: String, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -491,27 +495,12 @@ class VideoUtils {
         exportSession.outputFileType = .mp4
         exportSession.videoComposition = videoComposition
         
-        // Wait for export completion
-        let semaphore = DispatchSemaphore(value: 0)
-        exportSession.exportAsynchronously {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        // Check export status
-        if let error = exportSession.error {
-            throw VideoError.exportFailed(error.localizedDescription)
-        }
-        
-        guard exportSession.status == .completed else {
-            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
-        }
-        
+        try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputURL.path
     }
 
     // MARK: - Compress Video
-    static func compressVideo(videoPath: String, targetHeight: Int = 720) throws -> String {
+    static func compressVideo(videoPath: String, targetHeight: Int = 720, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
@@ -595,27 +584,81 @@ class VideoUtils {
         exportSession.outputFileType = .mp4
         exportSession.videoComposition = videoComposition
         
-        // Wait for export completion
-        let semaphore = DispatchSemaphore(value: 0)
-        exportSession.exportAsynchronously {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        // Check export status
-        if let error = exportSession.error {
-            throw VideoError.exportFailed(error.localizedDescription)
-        }
-        
-        guard exportSession.status == .completed else {
-            throw VideoError.exportFailed("Export failed with status: \(exportSession.status.rawValue)")
-        }
-        
+        try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputPath
     }
 
+    // MARK: - Get Video Metadata
+    static func getVideoMetadata(videoPath: String) throws -> [String: Any] {
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        
+        let url = URL(fileURLWithPath: videoPath)
+        let asset = AVAsset(url: url)
+        
+        // Load required properties asynchronously
+        let durationMs = Int64(asset.duration.seconds * 1000)
+        
+        // Get video track for dimensions and orientation
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        let naturalSize = videoTrack.naturalSize
+        
+        // Get transform for rotation
+        let transform = videoTrack.preferredTransform
+        let rotation: Int
+        
+        // Determine rotation from transform matrix
+        if transform.a == 0 && transform.b == 1.0 && transform.c == -1.0 && transform.d == 0 {
+            rotation = 90
+        } else if transform.a == 0 && transform.b == -1.0 && transform.c == 1.0 && transform.d == 0 {
+            rotation = 270
+        } else if transform.a == -1.0 && transform.b == 0 && transform.c == 0 && transform.d == -1.0 {
+            rotation = 180
+        } else {
+            rotation = 0
+        }
+        
+        // Get file size
+        let fileSize: Int64
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: videoPath)
+            fileSize = attributes[.size] as? Int64 ?? 0
+        } catch {
+            fileSize = 0
+        }
+        
+        // Get metadata items for title and author
+        let metadata = asset.commonMetadata
+        
+        var title: String? = nil
+        var author: String? = nil
+        
+        for item in metadata {
+            if item.commonKey?.rawValue == "title" {
+                title = item.stringValue
+            } else if item.commonKey?.rawValue == "creator" {
+                author = item.stringValue
+            }
+        }
+        
+        // Build metadata dictionary
+        return [
+            "duration": durationMs,
+            "width": Int(naturalSize.width),
+            "height": Int(naturalSize.height),
+            "title": title as Any,
+            "author": author as Any,
+            "rotation": rotation,
+            "fileSize": fileSize
+        ]
+    }
+    
     // MARK: - Generate Thumbnail
-    static func generateThumbnail(videoPath: String, positionMs: Int64, width: Int? = nil, height: Int? = nil, quality: Int = 80) throws -> String {
+    static func generateThumbnail(videoPath: String, positionMs: Int64, width: Int? = nil, height: Int? = nil, quality: Int = 80, workItem: DispatchWorkItem? = nil) throws -> String {
         // Validate input parameters
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
@@ -676,7 +719,7 @@ class VideoUtils {
     }
     
     // MARK: - Helper Methods
-    private static func export(composition: AVComposition, outputURL: URL, videoComposition: AVVideoComposition? = nil) throws -> String {
+    private static func export(composition: AVComposition, outputURL: URL, videoComposition: AVVideoComposition? = nil, workItem: DispatchWorkItem? = nil) throws -> String {
         guard let exportSession = AVAssetExportSession(
             asset: composition,
             presetName: AVAssetExportPresetHighestQuality
@@ -690,16 +733,7 @@ class VideoUtils {
             exportSession.videoComposition = videoComposition
         }
         
-        let semaphore = DispatchSemaphore(value: 0)
-        exportSession.exportAsynchronously {
-            semaphore.signal()
-        }
-        semaphore.wait()
-        
-        guard exportSession.status == .completed else {
-            throw VideoError.exportFailed(exportSession.error?.localizedDescription ?? "Unknown error")
-        }
-        
+        try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputURL.path
     }
 }

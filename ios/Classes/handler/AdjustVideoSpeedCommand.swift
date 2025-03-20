@@ -1,5 +1,6 @@
 import Flutter
 import AVFoundation
+import Foundation
 
 class AdjustVideoSpeedCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -14,49 +15,48 @@ class AdjustVideoSpeedCommand: Command {
             return
         }
         
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Create work item that can be canceled
+        let operationId = OperationManager.shared.generateOperationId()
+        lazy var workItem: DispatchWorkItem = DispatchWorkItem {
+            // Check if operation was canceled before starting
+            if workItem.isCancelled {
+                DispatchQueue.main.async {
+                    result(nil)
+                }
+                return
+            }
             do {
                 let outputPath = try VideoUtils.adjustVideoSpeed(
                     videoPath: videoPath,
-                    speed: speed.floatValue
+                    speed: speed.floatValue,
+                    workItem: workItem
                 )
-                
-                DispatchQueue.main.async {
-                    result(outputPath)
-                }
-            } catch VideoError.fileNotFound {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "FILE_NOT_FOUND",
-                        message: "The video file was not found at the specified path",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.invalidParameters {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "INVALID_SPEED",
-                        message: "The speed value must be greater than 0",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.exportFailed(let message) {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "EXPORT_FAILED",
-                        message: message,
-                        details: nil
-                    ))
+                // Check if operation was canceled after processing
+                if workItem.isCancelled {
+                    // Try to delete the output file since operation was canceled
+                    try? FileManager.default.removeItem(atPath: outputPath)
+                    DispatchQueue.main.async {
+                        result(nil)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        result(outputPath)
+                    }
                 }
             } catch {
+                // Silently handle errors without showing error message
                 DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "SPEED_ADJUST_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    ))
+                    result(nil)
                 }
             }
+            // Cancel operation when completed
+            OperationManager.shared.cancelOperation(operationId)
         }
+        
+        // Register work item with operation manager for possible cancellation
+        OperationManager.shared.registerOperation(id: operationId, workItem: workItem)
+
+        // Start the operation
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-} 
+}

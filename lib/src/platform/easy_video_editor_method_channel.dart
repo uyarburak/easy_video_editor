@@ -1,4 +1,5 @@
 import 'package:easy_video_editor/src/enums/enums.dart';
+import 'package:easy_video_editor/src/models/video_metadata.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -97,5 +98,26 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
       'targetHeight': resolution.height,
     });
     return result;
+  }
+
+  @override
+  Future<bool> cancelOperation() async {
+    final result =
+        await methodChannel.invokeMethod<bool>('cancelOperation') ?? false;
+    return result;
+  }
+
+  @override
+  Future<VideoMetadata> getVideoMetadata(String videoPath) async {
+    final result = await methodChannel
+        .invokeMapMethod<String, dynamic>('getVideoMetadata', {
+      'videoPath': videoPath,
+    });
+
+    if (result == null) {
+      throw Exception('Failed to get video metadata');
+    }
+
+    return VideoMetadata.fromMap(result);
   }
 }

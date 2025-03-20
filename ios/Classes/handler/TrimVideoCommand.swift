@@ -1,5 +1,6 @@
 import Flutter
 import AVFoundation
+import Foundation
 
 class TrimVideoCommand: Command {
     func execute(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -15,62 +16,55 @@ class TrimVideoCommand: Command {
             return
         }
         
-        // Convert to Int64 to ensure proper handling of large millisecond values
         let startTimeMs = startTime.int64Value
         let endTimeMs = endTime.int64Value
-        
-        DispatchQueue.global(qos: .userInitiated).async {
+
+        // Create operation ID
+        let operationId = OperationManager.shared.generateOperationId()
+
+        lazy var workItem: DispatchWorkItem = DispatchWorkItem {
+            // Check if operation was canceled before starting
+            if workItem.isCancelled {
+                DispatchQueue.main.async {
+                    result(nil)
+                }
+                return
+            }
+
             do {
                 let outputPath = try VideoUtils.trimVideo(
                     videoPath: videoPath,
                     startTimeMs: startTimeMs,
-                    endTimeMs: endTimeMs
+                    endTimeMs: endTimeMs,
+                    workItem: workItem
                 )
-                
-                DispatchQueue.main.async {
-                    result(outputPath)
-                }
-            } catch VideoError.invalidPath {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "INVALID_PATH",
-                        message: "The provided video path is invalid",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.invalidTimeRange {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "INVALID_TIME_RANGE",
-                        message: "The provided time range is invalid. Make sure start time is less than end time and within video duration",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.invalidAsset {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "INVALID_ASSET",
-                        message: "Could not create video asset from the provided path",
-                        details: nil
-                    ))
-                }
-            } catch VideoError.exportFailed(let message) {
-                DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "EXPORT_FAILED",
-                        message: message,
-                        details: nil
-                    ))
+
+                // Check if operation was canceled after processing
+                if workItem.isCancelled {
+                    try? FileManager.default.removeItem(atPath: outputPath)
+                    DispatchQueue.main.async {
+                        result(nil)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        result(outputPath)
+                    }
                 }
             } catch {
+                // Silently handle errors without showing error message
                 DispatchQueue.main.async {
-                    result(FlutterError(
-                        code: "TRIM_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    ))
+                    result(nil)
                 }
             }
+
+            // Cancel the operation when done
+            OperationManager.shared.cancelOperation(operationId)
         }
+
+        // Register workItem to be able to cancel
+        OperationManager.shared.registerOperation(id: operationId, workItem: workItem)
+
+        // Run the operation
+        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
-} 
+}
