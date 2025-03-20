@@ -102,20 +102,22 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
 
   @override
   Future<bool> cancelOperation() async {
-    final result = await methodChannel.invokeMethod<bool>('cancelOperation') ?? false;
+    final result =
+        await methodChannel.invokeMethod<bool>('cancelOperation') ?? false;
     return result;
   }
 
   @override
   Future<VideoMetadata> getVideoMetadata(String videoPath) async {
-    final result = await methodChannel.invokeMapMethod<String, dynamic>('getVideoMetadata', {
+    final result = await methodChannel
+        .invokeMapMethod<String, dynamic>('getVideoMetadata', {
       'videoPath': videoPath,
     });
-    
+
     if (result == null) {
       throw Exception('Failed to get video metadata');
     }
-    
+
     return VideoMetadata.fromMap(result);
   }
 }
