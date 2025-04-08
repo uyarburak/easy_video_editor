@@ -456,6 +456,20 @@ class VideoUtils {
         ) else {
             throw VideoError.exportFailed("Failed to create composition video track")
         }
+
+        // Add audio track if available
+        var compositionAudioTrack: AVMutableCompositionTrack?
+        if let audioTrack = asset.tracks(withMediaType: .audio).first {
+            compositionAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+            try compositionAudioTrack?.insertTimeRange(
+                CMTimeRange(start: .zero, duration: asset.duration),
+                of: audioTrack,
+                at: .zero
+            )
+        }
         
         // Add video track
         try compositionVideoTrack.insertTimeRange(
