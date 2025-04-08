@@ -1,3 +1,8 @@
+## 0.0.5
+
+- Add Progress callback when export video
+- Fix lost audio when crop video
+
 ## 0.0.4
 
 - Add method to retrieve video metadata (duration, dimensions, title, author, orientation, file size)

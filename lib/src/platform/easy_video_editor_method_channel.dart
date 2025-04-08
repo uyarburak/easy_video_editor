@@ -11,6 +11,10 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
   @visibleForTesting
   final methodChannel = const MethodChannel('easy_video_editor');
 
+  /// The event channel used to receive progress updates
+  @visibleForTesting
+  final eventChannel = const EventChannel('easy_video_editor/progress');
+
   @override
   Future<String?> trimVideo(
       String videoPath, int startTimeMs, int endTimeMs) async {
@@ -119,5 +123,20 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
     }
 
     return VideoMetadata.fromMap(result);
+  }
+
+  /// Sets up a listener for progress updates during video operations
+  ///
+  /// Returns a stream of progress values between 0.0 and 1.0
+  Stream<double> getProgressStream() {
+    return eventChannel.receiveBroadcastStream().map<double>((dynamic event) {
+      if (event is double) {
+        return event;
+      } else if (event is int) {
+        return event.toDouble() / 100; // Convert percentage to 0.0-1.0 range
+      } else {
+        return double.parse(event.toString()) / 100;
+      }
+    });
   }
 }

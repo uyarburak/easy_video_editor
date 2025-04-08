@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../easy_video_editor.dart';
@@ -94,9 +95,33 @@ class VideoEditorBuilder {
   ///
   /// [outputPath] Optional path where the final video will be saved.
   /// If not provided, a default path will be used.
-  Future<String?> export({String? outputPath}) async {
+  /// [onProgress] Optional callback to receive progress updates during export (0.0 to 1.0)
+  Future<String?> export(
+      {String? outputPath, void Function(double progress)? onProgress}) async {
     String? currentPath = _videoPath;
     String? previousPath;
+
+    // Set up progress listener if callback is provided
+    StreamSubscription<double>? progressSubscription;
+    int totalOperations = _operations.length;
+    int currentOperationIndex = 0;
+
+    if (onProgress != null && totalOperations > 0) {
+      progressSubscription = _editor.getProgressStream().listen((rawProgress) {
+        // Calculate overall progress based on current operation and its progress
+        // Each operation contributes 1/totalOperations to the overall progress
+        double operationContribution = 1.0 / totalOperations;
+        double overallProgress =
+            (currentOperationIndex * operationContribution) +
+                (rawProgress * operationContribution);
+
+        // Ensure progress stays between 0-1
+        onProgress(overallProgress.clamp(0.0, 1.0));
+      });
+    } else if (onProgress != null) {
+      // If no operations, just pass through the progress
+      progressSubscription = _editor.getProgressStream().listen(onProgress);
+    }
 
     for (final operation in _operations) {
       if (currentPath == null) break;
@@ -107,6 +132,11 @@ class VideoEditorBuilder {
 
         // Execute the operation
         currentPath = await _executeOperation(operation, currentPath);
+
+        // Update operation index for progress tracking
+        if (onProgress != null) {
+          currentOperationIndex++;
+        }
 
         // If this is not the input video and the operation was successful,
         // delete the intermediate file
@@ -142,6 +172,14 @@ class VideoEditorBuilder {
         return null;
       }
     }
+
+    // Report 100% progress when all operations complete
+    if (onProgress != null && totalOperations > 0) {
+      onProgress(1.0);
+    }
+
+    // Clean up progress subscription
+    await progressSubscription?.cancel();
 
     _videoPath = currentPath ?? _videoPath;
     return currentPath;

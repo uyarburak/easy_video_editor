@@ -31,6 +31,14 @@ class VideoUtils {
                 isCancelled = true
                 break
             }
+            
+            // Report progress if available
+            if exportSession.status == .exporting {
+                let progress = exportSession.progress
+                // Send progress updates to Flutter
+                ProgressManager.shared.reportProgress(Double(progress))
+            }
+            
             Thread.sleep(forTimeInterval: checkInterval)
         }
         

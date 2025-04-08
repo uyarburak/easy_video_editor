@@ -4,6 +4,9 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'easy_video_editor_method_channel.dart';
 
+/// Callback for progress updates during video operations
+typedef ProgressCallback = void Function(double progress);
+
 /// A platform interface for the easy_video_editor plugin that provides video editing
 /// capabilities without FFmpeg dependency.
 ///

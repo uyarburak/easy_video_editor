@@ -32,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.4
+  easy_video_editor: ^0.0.5
 ```
 
 Or install via command line:
@@ -54,9 +54,15 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   .speed(speed: 1.5)     // Speed up by 1.5x
   .removeAudio(); // Remove audio
 
-// Export the edited video
+// Export the edited video with progress tracking
 final outputPath = await editor.export(
-  outputPath: '/path/to/output.mp4' // Optional output path
+  outputPath: '/path/to/output.mp4', // Optional output path
+  onProgress: (progress) {
+    // Progress ranges from 0.0 to 1.0 (0% to 100%)
+    print('Export progress: ${(progress * 100).toStringAsFixed(1)}%');
+    // Update UI with progress information
+    // e.g., setState(() => exportProgress = progress);
+  }
 );
 ```
 
@@ -109,6 +115,31 @@ print('Orientation: ${metadata.rotation}°');
 print('File size: ${metadata.fileSize} bytes');
 ```
 
+### Progress Tracking
+
+```dart
+final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+  .trim(startTimeMs: 1000, endTimeMs: 10000)
+  .compress(resolution: VideoResolution.p720);
+
+// Track export progress
+double exportProgress = 0.0;
+
+// Export with progress updates
+final outputPath = await editor.export(
+  outputPath: '/path/to/output.mp4',
+  onProgress: (progress) {
+    setState(() {
+      exportProgress = progress; // Update state variable
+    });
+    
+    // Use progress value (0.0 to 1.0) to update UI
+    // For example, with a LinearProgressIndicator:
+    // LinearProgressIndicator(value: exportProgress)
+  }
+);
+```
+
 ### Cancel Operation
 
 ```dart
@@ -142,7 +173,9 @@ The main class for chaining video operations.
 - `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution (outputs MP4)
   - Available resolutions: 360p, 480p, 720p, 1080p, 1440p, 2160p (4K)
   - Maintains original aspect ratio
-- `export({String? outputPath})`: Process all operations and return output path (outputs MP4)
+- `export({String? outputPath, void Function(double progress)? onProgress})`: Process all operations and return output path (outputs MP4)
+  - `outputPath`: Optional custom path for the output file
+  - `onProgress`: Optional callback that receives progress updates (0.0 to 1.0) during export
 - `extractAudio({String? outputPath})`: Extract audio to separate file (outputs M4A on iOS, AAC on Android)
 - `generateThumbnail({required int positionMs, required int quality, int? width, int? height, String? outputPath})`: Generate thumbnail (outputs JPEG)
 - `getVideoMetadata()`: Retrieves detailed metadata about the current video file
