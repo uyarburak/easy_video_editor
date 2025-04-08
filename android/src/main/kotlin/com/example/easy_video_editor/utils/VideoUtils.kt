@@ -140,6 +140,31 @@ class VideoUtils {
 
                     transformer.start(editedMediaItem, outputFile.absolutePath)
 
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
+
                     continuation.invokeOnCancellation {
                         transformer.cancel()
                         outputFile.delete()
@@ -213,6 +238,31 @@ class VideoUtils {
                                     .build()
 
                     transformer.start(mediaItem, outputFile.absolutePath)
+                    
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
 
                     continuation.invokeOnCancellation {
                         transformer.cancel()
@@ -288,6 +338,31 @@ class VideoUtils {
                             .build()
 
                     transformer.start(composition, outputFile.absolutePath)
+                    
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
 
                     continuation.invokeOnCancellation {
                         transformer.cancel()
@@ -353,6 +428,31 @@ class VideoUtils {
 
                     transformer.start(editedMediaItem, outputFile.absolutePath)
 
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
+
                     continuation.invokeOnCancellation {
                         transformer.cancel()
                         outputFile.delete()
@@ -388,12 +488,10 @@ class VideoUtils {
                     audio.setSpeed(speedMultiplier)
 
                     val effects = Effects(listOf(audio), listOf(videoEffect))
-
-                    val editedMediaItem =
-                        EditedMediaItem.Builder(mediaItem).setEffects(effects).build()
-
-                    val transformer =
-                        Transformer.Builder(context)
+                    
+                    val editedMediaItem = EditedMediaItem.Builder(mediaItem).setEffects(effects).build()
+                    
+                    val transformer = Transformer.Builder(context)
                             .addListener(
                                 object : Transformer.Listener {
                                     override fun onCompleted(
@@ -423,9 +521,34 @@ class VideoUtils {
                                 }
                             )
                             .build()
-
+                    
                     transformer.start(editedMediaItem, outputFile.absolutePath)
-
+                    
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
+                    
                     continuation.invokeOnCancellation {
                         transformer.cancel()
                         outputFile.delete()
@@ -453,7 +576,7 @@ class VideoUtils {
 
                     val editedMediaItem =
                         EditedMediaItem.Builder(mediaItem)
-                            .setRemoveAudio(true) // Xoá âm thanh
+                            .setRemoveAudio(true) // Remove audio
                             .build()
 
                     val transformer =
@@ -489,6 +612,31 @@ class VideoUtils {
                             .build()
 
                     transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
 
                     continuation.invokeOnCancellation {
                         transformer.cancel()
@@ -597,6 +745,31 @@ class VideoUtils {
 
                     transformer.start(editedMediaItem, outputFile.absolutePath)
 
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
+
                     continuation.invokeOnCancellation {
                         transformer.cancel()
                         outputFile.delete()
@@ -669,6 +842,31 @@ class VideoUtils {
                             .build()
 
                     transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Log every progress update from Media3
+                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
 
                     continuation.invokeOnCancellation {
                         transformer.cancel()

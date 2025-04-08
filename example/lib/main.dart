@@ -27,6 +27,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String _status = '';
+  double _exportProgress = 0.0;
 
   Future<void> _trimAndSpeed() async {
     try {
@@ -95,6 +96,36 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _exportWithProgress() async {
+    try {
+      // Reset progress
+      setState(() {
+        _exportProgress = 0.0;
+        _status = 'Starting export with progress tracking...';
+      });
+
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+          .trim(startTimeMs: 1000, endTimeMs: 10000)
+          .compress(resolution: VideoResolution.p720);
+
+      final result = await editor.export(onProgress: (progress) {
+        // Update progress state
+        setState(() {
+          _exportProgress = progress;
+          _status = 'Export progress: ${(progress * 100).toStringAsFixed(1)}%';
+        });
+      });
+
+      setState(() {
+        _status = 'Export completed: $result';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Error: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,6 +158,22 @@ class _HomePageState extends State<HomePage> {
               onPressed: _generateThumbnail,
               child: const Text('Generate Thumbnail'),
             ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _exportWithProgress,
+              child: const Text('Export with Progress'),
+            ),
+            const SizedBox(height: 10),
+            // Progress indicator
+            if (_exportProgress > 0)
+              Column(
+                children: [
+                  LinearProgressIndicator(value: _exportProgress),
+                  const SizedBox(height: 5),
+                  Text('${(_exportProgress * 100).toStringAsFixed(1)}%',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
           ],
         ),
       ),

@@ -2,6 +2,9 @@ import 'enums/enums.dart';
 import 'models/models.dart';
 import 'platform/platform.dart';
 
+/// Callback for progress updates during video operations
+typedef ProgressCallback = void Function(double progress);
+
 /// Main class for video editing operations
 class EasyVideoEditor {
   /// Trims a video to the specified start and end times.
@@ -76,6 +79,18 @@ class EasyVideoEditor {
   /// Returns true if an operation was successfully canceled, false otherwise.
   Future<bool> cancelOperation() {
     return EasyVideoEditorPlatform.instance.cancelOperation();
+  }
+
+  /// Gets a stream of progress updates for video operations
+  ///
+  /// Returns a stream of progress values between 0.0 and 1.0
+  Stream<double> getProgressStream() {
+    final platform = EasyVideoEditorPlatform.instance;
+    if (platform is MethodChannelEasyVideoEditor) {
+      return platform.getProgressStream();
+    }
+    // Return an empty stream if the platform doesn't support progress updates
+    return const Stream.empty();
   }
 
   /// Retrieves metadata information about a video file.
