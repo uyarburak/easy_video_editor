@@ -315,6 +315,7 @@ class VideoEditorBuilder {
   /// - Author (if available)
   /// - Orientation (rotation in degrees: 0, 90, 180, 270)
   /// - File size (in bytes)
+  /// - Creation date (in String)
   Future<VideoMetadata> getVideoMetadata() async {
     return await EasyVideoEditor.getVideoMetadata(_videoPath);
   }

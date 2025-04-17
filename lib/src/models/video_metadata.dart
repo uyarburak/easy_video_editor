@@ -21,6 +21,8 @@ class VideoMetadata {
   /// File size in bytes
   final int fileSize;
 
+  final String? date;
+
   /// Creates a new VideoMetadata instance
   const VideoMetadata({
     required this.duration,
@@ -30,6 +32,7 @@ class VideoMetadata {
     this.author,
     required this.rotation,
     required this.fileSize,
+    this.date,
   });
 
   /// Create a VideoMetadata from a map (typically from the platform channel)
@@ -42,6 +45,7 @@ class VideoMetadata {
       author: map['author'] as String?,
       rotation: map['rotation'] as int,
       fileSize: map['fileSize'] as int,
+      date: map['date'] as String?,
     );
   }
 
@@ -55,6 +59,7 @@ class VideoMetadata {
       'author': author,
       'rotation': rotation,
       'fileSize': fileSize,
+      'date': date,
     };
   }
 
@@ -63,6 +68,8 @@ class VideoMetadata {
     return 'VideoMetadata(duration: $duration ms, '
         'width: $width, height: $height, '
         'title: $title, author: $author, '
-        'rotation: $rotation°, fileSize: ${(fileSize / 1024).toStringAsFixed(2)} KB)';
+        'rotation: $rotation°, '
+        'fileSize: ${(fileSize / 1024).toStringAsFixed(2)} KB, '
+        'date: $date)';
   }
 }

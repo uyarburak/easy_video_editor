@@ -615,24 +615,24 @@ class VideoUtils {
         guard FileManager.default.fileExists(atPath: videoPath) else {
             throw VideoError.fileNotFound
         }
-        
+
         let url = URL(fileURLWithPath: videoPath)
         let asset = AVAsset(url: url)
-        
+
         // Load required properties asynchronously
         let durationMs = Int64(asset.duration.seconds * 1000)
-        
+
         // Get video track for dimensions and orientation
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
             throw VideoError.invalidAsset
         }
-        
+
         let naturalSize = videoTrack.naturalSize
-        
+
         // Get transform for rotation
         let transform = videoTrack.preferredTransform
         let rotation: Int
-        
+
         // Determine rotation from transform matrix
         if transform.a == 0 && transform.b == 1.0 && transform.c == -1.0 && transform.d == 0 {
             rotation = 90
@@ -643,22 +643,29 @@ class VideoUtils {
         } else {
             rotation = 0
         }
-        
-        // Get file size
+
+        // Get file attributes for size and creation date
         let fileSize: Int64
+        var creationDateString: String? = nil
+
         do {
             let attributes = try FileManager.default.attributesOfItem(atPath: videoPath)
             fileSize = attributes[.size] as? Int64 ?? 0
+
+            if let creationDate = attributes[.creationDate] as? Date {
+                let formatter = ISO8601DateFormatter()
+                creationDateString = formatter.string(from: creationDate)
+            }
         } catch {
             fileSize = 0
+            creationDateString = nil
         }
-        
+
         // Get metadata items for title and author
         let metadata = asset.commonMetadata
-        
         var title: String? = nil
         var author: String? = nil
-        
+
         for item in metadata {
             if item.commonKey?.rawValue == "title" {
                 title = item.stringValue
@@ -666,7 +673,7 @@ class VideoUtils {
                 author = item.stringValue
             }
         }
-        
+
         // Build metadata dictionary
         return [
             "duration": durationMs,
@@ -675,9 +682,11 @@ class VideoUtils {
             "title": title as Any,
             "author": author as Any,
             "rotation": rotation,
-            "fileSize": fileSize
+            "fileSize": fileSize,
+            "date": creationDateString as Any
         ]
     }
+
     
     // MARK: - Generate Thumbnail
     static func generateThumbnail(videoPath: String, positionMs: Int64, width: Int? = nil, height: Int? = nil, quality: Int = 80, workItem: DispatchWorkItem? = nil) throws -> String {
