@@ -329,89 +329,82 @@ class VideoUtils {
         guard rotationDegrees.truncatingRemainder(dividingBy: 90) == 0 else {
             throw VideoError.invalidParameters
         }
-        
+
         let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
         let composition = AVMutableComposition()
         let videoComposition = AVMutableVideoComposition()
-        
-        guard let videoTrack = asset.tracks(withMediaType: .video).first,
-              let audioTrack = asset.tracks(withMediaType: .audio).first,
-              let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
-              let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-            throw VideoError.exportFailed("Failed to get tracks")
+
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.exportFailed("No video track found")
         }
-        
+
+        // Add video track to composition
+        guard let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw VideoError.exportFailed("Failed to create composition track")
+        }
         try compositionVideoTrack.insertTimeRange(
             CMTimeRange(start: .zero, duration: asset.duration),
             of: videoTrack,
             at: .zero
         )
-        try compositionAudioTrack.insertTimeRange(
-            CMTimeRange(start: .zero, duration: asset.duration),
-            of: audioTrack,
-            at: .zero
-        )
-        
-        // Get the original video track info
-        let originalSize = videoTrack.naturalSize
-        let originalTransform = videoTrack.preferredTransform
-        
-        // Calculate the actual display size
-        let videoFrame = originalSize.applying(originalTransform)
-        let actualSize = CGSize(width: abs(videoFrame.width), height: abs(videoFrame.height))
-        
-        // Get the natural size of the video
+
+        // Add audio track if present
+        if let audioTrack = asset.tracks(withMediaType: .audio).first,
+           let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+            try compositionAudioTrack.insertTimeRange(
+                CMTimeRange(start: .zero, duration: asset.duration),
+                of: audioTrack,
+                at: .zero
+            )
+        }
+
+        // Get size and transform
         let naturalSize = videoTrack.naturalSize
-        
-        // Calculate dimensions for rotation
+        let originalTransform = videoTrack.preferredTransform
+
+        // Determine final render size based on rotation
         let isPortrait = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-        let finalSize = isPortrait ? 
-            CGSize(width: naturalSize.height, height: naturalSize.width) :
-            naturalSize
-        
-        // Set the render size
+        let finalSize = isPortrait ? CGSize(width: naturalSize.height, height: naturalSize.width) : naturalSize
         videoComposition.renderSize = finalSize
-        
-        // Calculate transform based on rotation
-        var transform = CGAffineTransform.identity
-        
+
         // Apply rotation transform
+        var rotationTransform = CGAffineTransform.identity
+
         switch Int(rotationDegrees) {
         case 90:
-            // For 90-degree clockwise rotation
-            transform = transform
+            rotationTransform = rotationTransform
                 .translatedBy(x: naturalSize.height, y: 0)
                 .rotated(by: .pi / 2)
         case -90, 270:
-            // For 90-degree counter-clockwise rotation
-            transform = transform
+            rotationTransform = rotationTransform
                 .translatedBy(x: 0, y: naturalSize.width)
                 .rotated(by: -.pi / 2)
         case 180:
-            // For 180-degree rotation
-            transform = transform
+            rotationTransform = rotationTransform
                 .translatedBy(x: naturalSize.width, y: naturalSize.height)
                 .rotated(by: .pi)
         default:
             break
         }
-        
+
+        // Combine original transform with rotation
+        let finalTransform = originalTransform.concatenating(rotationTransform)
+
+        // Set up video composition instructions
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        
+        videoComposition.renderScale = 1.0
+
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
-        
+
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-        layerInstruction.setTransform(transform, at: .zero)
-        
+        layerInstruction.setTransform(finalTransform, at: .zero)
+
         instruction.layerInstructions = [layerInstruction]
         videoComposition.instructions = [instruction]
-        
-        // Ensure proper rendering
-        videoComposition.renderScale = 1.0
-        
+
         let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("rotated_video_\(Date().timeIntervalSince1970).mp4")
-        
+
         return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition, workItem: workItem)
     }
     
