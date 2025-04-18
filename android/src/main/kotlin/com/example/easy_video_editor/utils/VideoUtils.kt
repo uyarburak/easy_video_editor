@@ -86,11 +86,9 @@ class VideoUtils {
             context: Context,
             videoPath: String,
             targetHeight: Int = 720, // Default to 720p
-            bitrateMultiplier: Float = 0.5f // Reduce bitrate to 50% of original by default
         ): String {
             withContext(Dispatchers.IO) {
                 require(File(videoPath).exists()) { "Input video file does not exist" }
-                require(bitrateMultiplier in 0.1f..1.0f) { "Bitrate multiplier must be between 0.1 and 1.0" }
                 require(targetHeight > 0) { "Target height must be positive" }
             }
 
