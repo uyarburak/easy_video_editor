@@ -153,8 +153,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -252,8 +251,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -352,8 +350,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -441,8 +438,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -537,8 +533,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -626,8 +621,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -758,8 +752,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
@@ -856,8 +849,7 @@ class VideoUtils {
                                 // Send progress updates more frequently
                                 // Always report progress as long as we have a valid progress value
                                 if (progressHolder.progress >= 0) {
-                                    // Log every progress update from Media3
-                                    android.util.Log.d("VideoUtils", "Media3 reported progress: ${progressHolder.progress}%")
+                                    // Report progress to ProgressManager
                                     ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
                                 }
                                 
