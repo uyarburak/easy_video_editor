@@ -149,6 +149,7 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
   /// - Author (if available)
   /// - Orientation (rotation in degrees: 0, 90, 180, 270)
   /// - File size (in bytes)
+  /// - Creation date (in String)
   Future<VideoMetadata> getVideoMetadata(String videoPath) {
     throw UnimplementedError('getVideoMetadata() has not been implemented.');
   }

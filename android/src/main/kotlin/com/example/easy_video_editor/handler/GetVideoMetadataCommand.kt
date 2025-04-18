@@ -33,7 +33,8 @@ class GetVideoMetadataCommand(private val context: Context) : Command {
                     "title" to metadata.title,
                     "author" to metadata.author,
                     "rotation" to metadata.rotation,
-                    "fileSize" to metadata.fileSize
+                    "fileSize" to metadata.fileSize,
+                    "date" to metadata.date,
                 )
                 
                 withContext(Dispatchers.Main) {

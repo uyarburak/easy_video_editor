@@ -58,7 +58,10 @@ class VideoUtils {
                     
                     // Get rotation
                     val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0
-                    
+
+                    // Get date
+                    val date = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)
+
                     // Get file size
                     val fileSize = videoFile.length()
                     
@@ -69,7 +72,8 @@ class VideoUtils {
                         title = title,
                         author = author,
                         rotation = rotation,
-                        fileSize = fileSize
+                        fileSize = fileSize,
+                        date = date
                     )
                 } finally {
                     retriever.release()
@@ -950,5 +954,6 @@ data class VideoMetadata(
     val title: String?,
     val author: String?,
     val rotation: Int, // 0, 90, 180, or 270 degrees
-    val fileSize: Long // in bytes
+    val fileSize: Long, // in bytes
+    val date: String?
 )
