@@ -32,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.5
+  easy_video_editor: ^0.0.6
 ```
 
 Or install via command line:
@@ -113,6 +113,7 @@ print('Duration: ${metadata.duration} ms');
 print('Dimensions: ${metadata.width}x${metadata.height}');
 print('Orientation: ${metadata.rotation}°');
 print('File size: ${metadata.fileSize} bytes');
+print('Creation date: ${metadata.date}');
 ```
 
 ### Progress Tracking
@@ -132,7 +133,7 @@ final outputPath = await editor.export(
     setState(() {
       exportProgress = progress; // Update state variable
     });
-    
+
     // Use progress value (0.0 to 1.0) to update UI
     // For example, with a LinearProgressIndicator:
     // LinearProgressIndicator(value: exportProgress)
