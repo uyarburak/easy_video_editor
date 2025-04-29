@@ -1,3 +1,7 @@
+## 0.0.7
+
+- Fix rotation issue
+
 ## 0.0.6
 
 - Add creationDate to getVideoMetadata output
