@@ -362,35 +362,28 @@ class VideoUtils {
         let naturalSize = videoTrack.naturalSize
         let originalTransform = videoTrack.preferredTransform
 
-        // Determine final render size based on rotation
-        let isPortrait = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-        let finalSize = isPortrait ? CGSize(width: naturalSize.height, height: naturalSize.width) : naturalSize
+        // Determine final render size and transform
+        let radians = CGFloat(rotationDegrees) * .pi / 180
+        
+        // Combine the track's preferred transform with the additional rotation
+        var transform = originalTransform.concatenating(CGAffineTransform(rotationAngle: radians))
+        
+        // After rotation the video frame might be shifted out of origin (0,0). Calculate
+        // the bounding box of the rotated frame so we can translate it back so that the
+        // top-left of the video is at (0,0) and the content fully fits the renderSize.
+        let originalRect = CGRect(origin: .zero, size: naturalSize)
+        let rotatedRect = originalRect.applying(transform)
+        
+        // The bounding box can have negative origin values. Translate in by the negative
+        // origin to move the video into the positive quadrant.
+        transform = transform.concatenating(CGAffineTransform(translationX: -rotatedRect.origin.x,
+                                                             y: -rotatedRect.origin.y))
+        
+        // Set the final render size based on the absolute rotated bounding box width/height
+        let finalSize = CGSize(width: abs(rotatedRect.width), height: abs(rotatedRect.height))
         videoComposition.renderSize = finalSize
 
-        // Apply rotation transform
-        var rotationTransform = CGAffineTransform.identity
-
-        switch Int(rotationDegrees) {
-        case 90:
-            rotationTransform = rotationTransform
-                .translatedBy(x: naturalSize.height, y: 0)
-                .rotated(by: .pi / 2)
-        case -90, 270:
-            rotationTransform = rotationTransform
-                .translatedBy(x: 0, y: naturalSize.width)
-                .rotated(by: -.pi / 2)
-        case 180:
-            rotationTransform = rotationTransform
-                .translatedBy(x: naturalSize.width, y: naturalSize.height)
-                .rotated(by: .pi)
-        default:
-            break
-        }
-
-        // Combine original transform with rotation
-        let finalTransform = originalTransform.concatenating(rotationTransform)
-
-        // Set up video composition instructions
+        // Set up video composition parameters
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
         videoComposition.renderScale = 1.0
 
@@ -398,7 +391,7 @@ class VideoUtils {
         instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
 
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-        layerInstruction.setTransform(finalTransform, at: .zero)
+        layerInstruction.setTransform(transform, at: .zero)
 
         instruction.layerInstructions = [layerInstruction]
         videoComposition.instructions = [instruction]
