@@ -16,7 +16,8 @@ enum class MethodName(val methodName: String) {
     GENERATE_THUMBNAIL("generateThumbnail"),
     COMPRESS_VIDEO("compressVideo"),
     CANCEL_OPERATION("cancelOperation"),
-    GET_VIDEO_METADATA("getVideoMetadata");
+    GET_VIDEO_METADATA("getVideoMetadata"),
+    FLIP_VIDEO("flipVideo");
 
     companion object {
         fun fromString(method: String): MethodName? {
@@ -37,7 +38,8 @@ class CommandHandler (private val context: Context) {
         MethodName.GENERATE_THUMBNAIL to GenerateThumbnailCommand(context),
         MethodName.COMPRESS_VIDEO to CompressVideoCommand(context),
         MethodName.CANCEL_OPERATION to CancelOperationCommand(),
-        MethodName.GET_VIDEO_METADATA to GetVideoMetadataCommand(context)
+        MethodName.GET_VIDEO_METADATA to GetVideoMetadataCommand(context),
+        MethodName.FLIP_VIDEO to FlipVideoCommand(context),
     )
 
     fun handleCommand(call: MethodCall, result: MethodChannel.Result) {

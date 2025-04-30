@@ -108,4 +108,9 @@ class EasyVideoEditor {
   static Future<VideoMetadata> getVideoMetadata(String videoPath) {
     return EasyVideoEditorPlatform.instance.getVideoMetadata(videoPath);
   }
+
+  /// Flips a video horizontally or vertically.
+  Future<String?> flipVideo(String videoPath, FlipDirection flipDirection) {
+    return EasyVideoEditorPlatform.instance.flipVideo(videoPath, flipDirection);
+  }
 }

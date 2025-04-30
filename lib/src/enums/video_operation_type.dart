@@ -20,4 +20,7 @@ enum VideoOperationType {
 
   /// Compress video
   compress,
+
+  /// Flip video
+  flip,
 }

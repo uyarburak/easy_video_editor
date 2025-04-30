@@ -18,6 +18,7 @@ A powerful Flutter plugin for video editing operations with a simple, chainable 
   - Scale video to specific dimensions
   - Rotate video by specified degrees
   - Crop video to specific aspect ratios
+  - Flip video horizontally or vertically
 - 🗜️ **Video Compression**:
   - Compress videos to standard resolutions (360p to 4K)
   - Maintains aspect ratio while resizing
@@ -32,7 +33,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.0.7
+  easy_video_editor: ^0.0.8
 ```
 
 Or install via command line:
@@ -87,6 +88,9 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
 
   // Rotate video
   .rotate(degree: RotationDegree.d90);
+
+  // Flip video
+  .flip(flipDirection: FlipDirection.horizontal);
 
 // Export the final video
 final outputPath = await editor.export(
@@ -174,6 +178,7 @@ The main class for chaining video operations.
 - `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution (outputs MP4)
   - Available resolutions: 360p, 480p, 720p, 1080p, 1440p, 2160p (4K)
   - Maintains original aspect ratio
+- `flip({required FlipDirection direction})`: Flip video horizontally or vertically (outputs MP4)
 - `export({String? outputPath, void Function(double progress)? onProgress})`: Process all operations and return output path (outputs MP4)
   - `outputPath`: Optional custom path for the output file
   - `onProgress`: Optional callback that receives progress updates (0.0 to 1.0) during export
