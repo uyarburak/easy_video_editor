@@ -401,6 +401,87 @@ class VideoUtils {
         return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition, workItem: workItem)
     }
     
+    // MARK: - Flip Video
+    static func flipVideo(videoPath: String, flipDirection: String, workItem: DispatchWorkItem? = nil) throws -> String {
+        // Validate input parameters
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        let direction = flipDirection.lowercased()
+        guard direction == "horizontal" || direction == "vertical" else {
+            throw VideoError.invalidParameters
+        }
+
+        let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+
+        // Create composition and insert video track
+        let composition = AVMutableComposition()
+        guard let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw VideoError.exportFailed("Failed to create composition video track")
+        }
+        try compositionVideoTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: asset.duration),
+            of: videoTrack,
+            at: .zero
+        )
+
+        // Add audio track if present
+        if let audioTrack = asset.tracks(withMediaType: .audio).first,
+           let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+            try compositionAudioTrack.insertTimeRange(
+                CMTimeRange(start: .zero, duration: asset.duration),
+                of: audioTrack,
+                at: .zero
+            )
+        }
+
+        // Prepare video composition with flip transform
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+
+        let naturalSize = videoTrack.naturalSize
+        let originalTransform = videoTrack.preferredTransform
+
+        // Build flip transform
+        let flipTransform = direction == "horizontal"
+            ? CGAffineTransform(scaleX: -1, y: 1)
+            : CGAffineTransform(scaleX: 1, y: -1)
+
+        // Combine original transform with flip
+        var transform = originalTransform.concatenating(flipTransform)
+
+        // Calculate bounding box after transform
+        let originalRect = CGRect(origin: .zero, size: naturalSize)
+        let flippedRect = originalRect.applying(transform)
+
+        // Translate to ensure video fits the render size
+        transform = transform.concatenating(
+            CGAffineTransform(translationX: -flippedRect.origin.x,
+                              y: -flippedRect.origin.y)
+        )
+
+        // Final render size
+        videoComposition.renderSize = CGSize(width: abs(flippedRect.width),
+                                             height: abs(flippedRect.height))
+
+        layerInstruction.setTransform(transform, at: .zero)
+        instruction.layerInstructions = [layerInstruction]
+        videoComposition.instructions = [instruction]
+
+        // Output path
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("flipped_video_\(Date().timeIntervalSince1970).mp4")
+
+        return try export(composition: composition, outputURL: outputURL, videoComposition: videoComposition, workItem: workItem)
+    }
+    
     // MARK: - Crop Video
     static func cropVideo(videoPath: String, aspectRatio: String, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {

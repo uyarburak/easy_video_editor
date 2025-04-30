@@ -91,6 +91,17 @@ class VideoEditorBuilder {
     return this;
   }
 
+  /// Adds flip operation
+  ///
+  /// [flipDirection] Direction to flip the video (horizontal or vertical)
+  VideoEditorBuilder flip({required FlipDirection flipDirection}) {
+    _operations.add(VideoOperation(
+      VideoOperationType.flip,
+      {'flipDirection': flipDirection},
+    ));
+    return this;
+  }
+
   /// Executes all operations in sequence and returns the final video path
   ///
   /// [outputPath] Optional path where the final video will be saved.
@@ -227,6 +238,12 @@ class VideoEditorBuilder {
         return await _editor.compressVideo(
           inputPath,
           resolution: operation.params['resolution'] as VideoResolution,
+        );
+
+      case VideoOperationType.flip:
+        return await _editor.flipVideo(
+          inputPath,
+          operation.params['flipDirection'] as FlipDirection,
         );
     }
   }

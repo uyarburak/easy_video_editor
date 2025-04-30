@@ -13,6 +13,7 @@ enum MethodName: String {
     case compressVideo = "compressVideo"
     case cancelOperation = "cancelOperation"
     case getVideoMetadata = "getVideoMetadata"
+    case flipVideo = "flipVideo"
 }
 
 class CommandHandler {
@@ -30,7 +31,8 @@ class CommandHandler {
             .generateThumbnail: GenerateThumbnailCommand(),
             .compressVideo: CompressVideoCommand(),
             .cancelOperation: CancelOperationCommand(),
-            .getVideoMetadata: GetVideoMetadataCommand()
+            .getVideoMetadata: GetVideoMetadataCommand(),
+            .flipVideo: FlipVideoCommand()
         ]
     }
     

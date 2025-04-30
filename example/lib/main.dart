@@ -81,6 +81,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _flipVideo() async {
+    try {
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+          .flip(flipDirection: FlipDirection.horizontal);
+
+      final result = await editor.export();
+      setState(() {
+        _status = 'Video flipped: $result';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Error: $e';
+      });
+    }
+  }
+
   Future<void> _generateThumbnail() async {
     try {
       final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4');
@@ -162,6 +178,11 @@ class _HomePageState extends State<HomePage> {
             ElevatedButton(
               onPressed: _exportWithProgress,
               child: const Text('Export with Progress'),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _flipVideo,
+              child: const Text('Flip Video'),
             ),
             const SizedBox(height: 10),
             // Progress indicator

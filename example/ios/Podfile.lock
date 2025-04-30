@@ -1,0 +1,28 @@
+PODS:
+  - easy_video_editor (0.0.5):
+    - Flutter
+  - Flutter (1.0.0)
+  - integration_test (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - easy_video_editor (from `.symlinks/plugins/easy_video_editor/ios`)
+  - Flutter (from `Flutter`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+
+EXTERNAL SOURCES:
+  easy_video_editor:
+    :path: ".symlinks/plugins/easy_video_editor/ios"
+  Flutter:
+    :path: Flutter
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+
+SPEC CHECKSUMS:
+  easy_video_editor: 3b4b38c40be7344935f79698115ee36077df8a57
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+
+PODFILE CHECKSUM: 4305caec6b40dde0ae97be1573c53de1882a07e5
+
+COCOAPODS: 1.16.2

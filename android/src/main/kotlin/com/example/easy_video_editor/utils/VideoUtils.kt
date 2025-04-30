@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import androidx.core.graphics.scale
+import androidx.media3.common.Effect
 
 @UnstableApi
 class VideoUtils {
@@ -926,6 +927,109 @@ class VideoUtils {
                     retriever.release()
                 }
             }
+
+        suspend fun flipVideo(context: Context, videoPath: String, flipDirection: String): String {
+            // File operations on IO thread
+            withContext(Dispatchers.IO) {
+                require(File(videoPath).exists()) { "Input video file does not exist" }
+                require(flipDirection.isNotEmpty()) { "Direction must not empty" }
+            }
+
+            val outputFile = withContext(Dispatchers.IO) {
+                File(context.cacheDir, "flip_video_${System.currentTimeMillis()}.mp4")
+                    .apply { if (exists()) delete() }
+            }
+
+            // Transformer operations on Main thread
+            return withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { continuation ->
+                    val mediaItem =
+                        MediaItem.Builder().setUri(Uri.fromFile(File(videoPath))).build()
+
+                    val flipEffect = when (flipDirection.lowercase()) {
+                        "horizontal" -> ScaleAndRotateTransformation.Builder().setScale(-1f, 1f).build()
+                        "vertical" -> ScaleAndRotateTransformation.Builder().setScale(1f, -1f).build()
+                        else -> ScaleAndRotateTransformation.Builder().setScale(1f, 1f).build()
+                    }
+
+                    val effects =
+                        Effects(
+                            emptyList(),
+                            listOf(
+                                flipEffect
+                            )
+                        )
+
+                    val editedMediaItem =
+                        EditedMediaItem.Builder(mediaItem).setEffects(effects).build()
+
+                    val transformer =
+                        Transformer.Builder(context)
+                            .addListener(
+                                object : Transformer.Listener {
+                                    override fun onCompleted(
+                                        composition: Composition,
+                                        exportResult: ExportResult
+                                    ) {
+                                        if (continuation.isActive) {
+                                            continuation.resume(outputFile.absolutePath)
+                                        }
+                                    }
+
+                                    override fun onError(
+                                        composition: Composition,
+                                        exportResult: ExportResult,
+                                        exportException: ExportException
+                                    ) {
+                                        if (continuation.isActive) {
+                                            continuation.resumeWithException(
+                                                VideoException(
+                                                    "Failed to rotate video: ${exportException.message}",
+                                                    exportException
+                                                )
+                                            )
+                                        }
+                                        outputFile.delete()
+                                    }
+                                }
+                            )
+                            .build()
+
+                    transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                // Report progress to ProgressManager
+                                // Send progress updates more frequently
+                                // Always report progress as long as we have a valid progress value
+                                if (progressHolder.progress >= 0) {
+                                    // Report progress to ProgressManager
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+
+                                // Continue polling if the transformer has started (simplified condition)
+                                // The original Media3 example uses this condition, which might be more reliable
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
+                                }
+                            }
+                        }
+                    )
+
+                    continuation.invokeOnCancellation {
+                        if (transformer.getProgress(progressHolder) != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                            transformer.cancel()
+                            outputFile.delete()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

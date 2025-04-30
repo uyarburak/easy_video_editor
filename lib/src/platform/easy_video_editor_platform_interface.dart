@@ -153,4 +153,14 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
   Future<VideoMetadata> getVideoMetadata(String videoPath) {
     throw UnimplementedError('getVideoMetadata() has not been implemented.');
   }
+
+  /// Flips a video horizontally or vertically.
+  ///
+  /// [videoPath] is the path to the source video file.
+  /// [flipDirection] defines the direction to flip the video.
+  ///
+  /// Returns the path to the flipped video file, or null if the operation fails.
+  Future<String?> flipVideo(String videoPath, FlipDirection flipDirection) {
+    throw UnimplementedError('flipVideo() has not been implemented.');
+  }
 }

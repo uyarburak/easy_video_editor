@@ -1,3 +1,7 @@
+## 0.0.8
+
+- Add flip video method
+
 ## 0.0.7
 
 - Fix rotation issue

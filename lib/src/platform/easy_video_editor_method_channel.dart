@@ -139,4 +139,14 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
       }
     });
   }
+
+  @override
+  Future<String?> flipVideo(
+      String videoPath, FlipDirection flipDirection) async {
+    final result = await methodChannel.invokeMethod<String>('flipVideo', {
+      'videoPath': videoPath,
+      'flipDirection': flipDirection.value,
+    });
+    return result;
+  }
 }
