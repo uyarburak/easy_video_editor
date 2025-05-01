@@ -1,3 +1,7 @@
+## 0.0.9
+
+- Fix compress video issue
+
 ## 0.0.8
 
 - Add flip video method
