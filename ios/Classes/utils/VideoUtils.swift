@@ -376,12 +376,22 @@ class VideoUtils {
         
         // The bounding box can have negative origin values. Translate in by the negative
         // origin to move the video into the positive quadrant.
-        transform = transform.concatenating(CGAffineTransform(translationX: -rotatedRect.origin.x,
-                                                             y: -rotatedRect.origin.y))
-        
-        // Set the final render size based on the absolute rotated bounding box width/height
-        let finalSize = CGSize(width: abs(rotatedRect.width), height: abs(rotatedRect.height))
-        videoComposition.renderSize = finalSize
+        let translateX = -rotatedRect.origin.x.rounded(.toNearestOrEven)
+        let translateY = -rotatedRect.origin.y.rounded(.toNearestOrEven)
+        transform = transform.concatenating(
+            CGAffineTransform(translationX: translateX,
+                              y: translateY)
+        )
+
+        // Final render size
+        var finalWidth = Int(abs(rotatedRect.width).rounded())
+        var finalHeight = Int(abs(rotatedRect.height).rounded())
+
+        // H.264 requires dimensions to be divisible by 2 – make them even to prevent green edges
+        if finalWidth % 2 != 0 { finalWidth += 1 }
+        if finalHeight % 2 != 0 { finalHeight += 1 }
+
+        videoComposition.renderSize = CGSize(width: finalWidth, height: finalHeight)
 
         // Set up video composition parameters
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
@@ -448,7 +458,6 @@ class VideoUtils {
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
 
         let naturalSize = videoTrack.naturalSize
-        let originalTransform = videoTrack.preferredTransform
 
         // Build flip transform
         let flipTransform = direction == "horizontal"
@@ -456,21 +465,29 @@ class VideoUtils {
             : CGAffineTransform(scaleX: 1, y: -1)
 
         // Combine original transform with flip
-        var transform = originalTransform.concatenating(flipTransform)
+        var transform = videoTrack.preferredTransform.concatenating(flipTransform)
 
         // Calculate bounding box after transform
         let originalRect = CGRect(origin: .zero, size: naturalSize)
         let flippedRect = originalRect.applying(transform)
 
         // Translate to ensure video fits the render size
+        let translateX = -flippedRect.origin.x.rounded(.toNearestOrEven)
+        let translateY = -flippedRect.origin.y.rounded(.toNearestOrEven)
         transform = transform.concatenating(
-            CGAffineTransform(translationX: -flippedRect.origin.x,
-                              y: -flippedRect.origin.y)
+            CGAffineTransform(translationX: translateX,
+                              y: translateY)
         )
 
         // Final render size
-        videoComposition.renderSize = CGSize(width: abs(flippedRect.width),
-                                             height: abs(flippedRect.height))
+        var finalWidth = Int(abs(flippedRect.width).rounded())
+        var finalHeight = Int(abs(flippedRect.height).rounded())
+
+        // H.264 requires dimensions to be divisible by 2 – make them even to prevent green edges
+        if finalWidth % 2 != 0 { finalWidth += 1 }
+        if finalHeight % 2 != 0 { finalHeight += 1 }
+
+        videoComposition.renderSize = CGSize(width: finalWidth, height: finalHeight)
 
         layerInstruction.setTransform(transform, at: .zero)
         instruction.layerInstructions = [layerInstruction]
@@ -632,27 +649,56 @@ class VideoUtils {
         // Create video composition
         let videoComposition = AVMutableVideoComposition()
         
-        // Calculate target width based on aspect ratio
-        let originalSize = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
-        let originalAspect = abs(originalSize.width / originalSize.height)
-        let targetWidth = Int(CGFloat(targetHeight) * originalAspect)
+        // Build transform that preserves the original orientation and scales to the target height.
+        let naturalSize = videoTrack.naturalSize
+        let preferredTransform = videoTrack.preferredTransform
+
+        // Bounding box of the video after applying the preferred transform
+        let originalRect = CGRect(origin: .zero, size: naturalSize)
+        var transform = preferredTransform
+        var transformedRect = originalRect.applying(transform)
+
+        // Determine scale factor (downscale only). If original height is smaller than target, keep original size.
+        var scaleFactor: CGFloat = 1.0
+        let targetHeightF = CGFloat(targetHeight)
+        if abs(transformedRect.height) > targetHeightF {
+            scaleFactor = targetHeightF / abs(transformedRect.height)
+            transform = transform.concatenating(CGAffineTransform(scaleX: scaleFactor, y: scaleFactor))
+            // Apply scale to rect to obtain its new size/position
+            transformedRect = transformedRect.applying(CGAffineTransform(scaleX: scaleFactor, y: scaleFactor))
+        }
         
-        videoComposition.renderSize = CGSize(
-            width: targetWidth,
-            height: targetHeight
-        )
+        // Round translation to the nearest pixel to avoid sub-pixel artefacts
+        let translateX = -transformedRect.origin.x.rounded(.toNearestOrEven)
+        let translateY = -transformedRect.origin.y.rounded(.toNearestOrEven)
+        transform = transform.concatenating(CGAffineTransform(translationX: translateX,
+                                                             y: translateY))
+
+        // Final render size after orientation and scaling
+        var finalWidth = Int(abs(transformedRect.width).rounded())
+        var finalHeight = Int(abs(transformedRect.height).rounded())
+
+        // Ensure width/height are multiples of 16 (macroblock boundary) to avoid artefacts
+        if finalWidth % 16 != 0 {
+            finalWidth = max(16, (finalWidth / 16) * 16)
+        }
+        if finalHeight % 16 != 0 {
+            finalHeight = max(16, (finalHeight / 16) * 16)
+        }
+
+        // Still guarantee even numbers for H.264 requirement
+        if finalWidth % 2 != 0 { finalWidth += 1 }
+        if finalHeight % 2 != 0 { finalHeight += 1 }
+
+        videoComposition.renderSize = CGSize(width: finalWidth, height: finalHeight)
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        
+
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
-        
+
         let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-        
-        // Calculate scale to fit target height
-        let scaleFactor = CGFloat(targetHeight) / abs(originalSize.height)
-        let scale = CGAffineTransform(scaleX: scaleFactor, y: scaleFactor)
-        
-        transformer.setTransform(scale, at: .zero)
+        transformer.setTransform(transform, at: .zero)
+
         instruction.layerInstructions = [transformer]
         videoComposition.instructions = [instruction]
         
