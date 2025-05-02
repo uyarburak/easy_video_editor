@@ -1,3 +1,7 @@
+## 0.1.0
+
+- Fix compress video issue on Android
+
 ## 0.0.9
 
 - Fix compress video issue
