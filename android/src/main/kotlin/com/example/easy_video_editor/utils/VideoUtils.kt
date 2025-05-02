@@ -11,7 +11,6 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.effect.SpeedChangeEffect
-import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -26,8 +25,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import androidx.core.graphics.scale
-import androidx.media3.common.Effect
-import androidx.media3.effect.Presentation.LAYOUT_SCALE_TO_FIT
+import com.otaliastudios.transcoder.Transcoder
+import com.otaliastudios.transcoder.TranscoderListener
+import com.otaliastudios.transcoder.source.UriDataSource
+import com.otaliastudios.transcoder.strategy.DefaultAudioStrategy
+import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
+import java.text.SimpleDateFormat
+import java.util.*
+import androidx.core.net.toUri
 
 @UnstableApi
 class VideoUtils {
@@ -82,27 +87,6 @@ class VideoUtils {
                 }
             }
         }
-        
-        
-        /**
-         * Get the dimensions (width and height) of a video file
-         * @param videoPath Path to the video file
-         * @return Pair<Int, Int> containing width and height
-         */
-        private fun getVideoSize(videoPath: String): Pair<Int, Int> {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(videoPath)
-                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
-                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
-                return Pair(width, height)
-            } catch (e: Exception) {
-                return Pair(0, 0)
-            } finally {
-                retriever.release()
-            }
-        }
-        
         /**
          * Compress a video while maintaining aspect ratio
          * @param context Android context
@@ -119,94 +103,76 @@ class VideoUtils {
                 require(File(videoPath).exists()) { "Input video file does not exist" }
                 require(targetHeight > 0) { "Target height must be positive" }
             }
-
-            val outputFile = withContext(Dispatchers.IO) {
-                File(context.cacheDir, "compressed_video_${System.currentTimeMillis()}.mp4")
-                    .apply { if (exists()) delete() }
-            }
-
+            
+            // Create temp directory if it doesn't exist
+            val tempDir: String = context.getExternalFilesDir("easy_video_editor")!!.absolutePath
+            val outputFileName = "VID_${SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US).format(Date())}_${videoPath.hashCode()}.mp4"
+            val outputPath = "$tempDir${File.separator}$outputFileName"
+            val outputFile = File(outputPath)
+            if (outputFile.exists()) outputFile.delete()
+            
             return withContext(Dispatchers.Main) {
                 suspendCancellableCoroutine { continuation ->
-                    val mediaItem = MediaItem.fromUri(Uri.fromFile(File(videoPath)))
+                    // Define video compression strategy based on targetHeight
+                    val videoTrackStrategy = DefaultVideoStrategy.atMost(targetHeight).build()
                     
-                    // Get original video dimensions
-                    val originalSize = getVideoSize(videoPath)
-                    val originalWidth = originalSize.first
-                    val originalHeight = originalSize.second
-                    
-                    // Maintain aspect ratio by calculating width based on target height
-                    val scaleFactor = targetHeight.toFloat() / originalHeight.toFloat()
-                    val targetWidth = (originalWidth * scaleFactor).toInt()
-                    
-                    val editedMediaItem = EditedMediaItem.Builder(mediaItem)
-                        .setEffects(Effects(
-                             emptyList(),
-                            listOf(Presentation.createForWidthAndHeight(
-                                targetWidth, targetHeight, LAYOUT_SCALE_TO_FIT
-                            ))
-                        ))
+                    // Configure audio strategy - always include audio for the simple version
+                    val audioTrackStrategy = DefaultAudioStrategy.builder()
+                        .channels(DefaultAudioStrategy.CHANNELS_AS_INPUT)
+                        .sampleRate(DefaultAudioStrategy.SAMPLE_RATE_AS_INPUT)
                         .build()
-
-                    val transformer = Transformer.Builder(context)
-                        .setVideoMimeType(MimeTypes.VIDEO_H264)
-                        .addListener(
-                            object : Transformer.Listener {
-                                override fun onCompleted(
-                                    composition: Composition,
-                                    exportResult: ExportResult
-                                ) {
-                                    if (continuation.isActive) {
-                                        continuation.resume(outputFile.absolutePath)
-                                    }
+                    
+                    // Create data source (no trimming in the simple version)
+                    val dataSource = UriDataSource(context, videoPath.toUri())
+                    
+                    // Create a variable to store the transcode future for cancellation
+                    val transcodeFuture = Transcoder.into(outputPath)
+                        .addDataSource(dataSource)
+                        .setVideoTrackStrategy(videoTrackStrategy)
+                        .setAudioTrackStrategy(audioTrackStrategy)
+                        .setListener(object : TranscoderListener {
+                            override fun onTranscodeProgress(progress: Double) {
+                                // Report progress to ProgressManager (0.0 to 1.0)
+                                ProgressManager.getInstance().reportProgress(progress)
+                            }
+                            
+                            override fun onTranscodeCompleted(successCode: Int) {
+                                if (continuation.isActive) {
+                                    // Mark progress as 100% complete
+                                    ProgressManager.getInstance().reportProgress(1.0)
+                                    
+                                    // Return the output path to the caller
+                                    continuation.resume(outputPath)
                                 }
-
-                                override fun onError(
-                                    composition: Composition,
-                                    exportResult: ExportResult,
-                                    exportException: ExportException
-                                ) {
-                                    if (continuation.isActive) {
-                                        continuation.resumeWithException(
-                                            VideoException(
-                                                "Failed to compress video: ${exportException.message}",
-                                                exportException
-                                            )
+                            }
+                            
+                            override fun onTranscodeCanceled() {
+                                if (continuation.isActive) {
+                                    continuation.resumeWithException(
+                                        VideoException("Video compression was canceled")
+                                    )
+                                }
+                                // Clean up output file if canceled
+                                outputFile.delete()
+                            }
+                            
+                            override fun onTranscodeFailed(exception: Throwable) {
+                                if (continuation.isActive) {
+                                    continuation.resumeWithException(
+                                        VideoException(
+                                            "Failed to compress video: ${exception.message}",
+                                            exception
                                         )
-                                    }
-                                    outputFile.delete()
+                                    )
                                 }
+                                // Clean up output file if failed
+                                outputFile.delete()
                             }
-                        )
-                        .build()
-
-                    transformer.start(editedMediaItem, outputFile.absolutePath)
-
-                    // Set up progress tracking
-                    val progressHolder = androidx.media3.transformer.ProgressHolder()
-                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-                    mainHandler.post(
-                        object : Runnable {
-                            override fun run() {
-                                val progressState = transformer.getProgress(progressHolder)
-                                // Report progress to ProgressManager
-                                // Send progress updates more frequently
-                                // Always report progress as long as we have a valid progress value
-                                if (progressHolder.progress >= 0) {
-                                    // Report progress to ProgressManager
-                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
-                                }
-                                
-                                // Continue polling if the transformer has started (simplified condition)
-                                // The original Media3 example uses this condition, which might be more reliable
-                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
-                                    mainHandler.postDelayed(this, 200) // Update every 200ms - better balance
-                                }
-                            }
-                        }
-                    )
-
+                        }).transcode()
+                    
+                    // Set up cancellation handling
                     continuation.invokeOnCancellation {
-                        transformer.cancel()
+                        transcodeFuture.cancel(true)
                         outputFile.delete()
                     }
                 }

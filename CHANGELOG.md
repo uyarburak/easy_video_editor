@@ -1,3 +1,7 @@
+## 0.1.1
+
+- Fix compress video issue on Android and change logic compress video
+
 ## 0.1.0
 
 - Fix compress video issue on Android
