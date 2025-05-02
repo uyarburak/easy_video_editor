@@ -27,6 +27,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import androidx.core.graphics.scale
 import androidx.media3.common.Effect
+import androidx.media3.effect.Presentation.LAYOUT_SCALE_TO_FIT
 
 @UnstableApi
 class VideoUtils {
@@ -83,6 +84,32 @@ class VideoUtils {
         }
         
         
+        /**
+         * Get the dimensions (width and height) of a video file
+         * @param videoPath Path to the video file
+         * @return Pair<Int, Int> containing width and height
+         */
+        private fun getVideoSize(videoPath: String): Pair<Int, Int> {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(videoPath)
+                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+                return Pair(width, height)
+            } catch (e: Exception) {
+                return Pair(0, 0)
+            } finally {
+                retriever.release()
+            }
+        }
+        
+        /**
+         * Compress a video while maintaining aspect ratio
+         * @param context Android context
+         * @param videoPath Path to the input video file
+         * @param targetHeight Target height for the compressed video (default: 720p)
+         * @return Path to the compressed video file
+         */
         suspend fun compressVideo(
             context: Context,
             videoPath: String,
@@ -102,10 +129,21 @@ class VideoUtils {
                 suspendCancellableCoroutine { continuation ->
                     val mediaItem = MediaItem.fromUri(Uri.fromFile(File(videoPath)))
                     
+                    // Get original video dimensions
+                    val originalSize = getVideoSize(videoPath)
+                    val originalWidth = originalSize.first
+                    val originalHeight = originalSize.second
+                    
+                    // Maintain aspect ratio by calculating width based on target height
+                    val scaleFactor = targetHeight.toFloat() / originalHeight.toFloat()
+                    val targetWidth = (originalWidth * scaleFactor).toInt()
+                    
                     val editedMediaItem = EditedMediaItem.Builder(mediaItem)
                         .setEffects(Effects(
                              emptyList(),
-                            listOf(Presentation.createForHeight(targetHeight))
+                            listOf(Presentation.createForWidthAndHeight(
+                                targetWidth, targetHeight, LAYOUT_SCALE_TO_FIT
+                            ))
                         ))
                         .build()
 
