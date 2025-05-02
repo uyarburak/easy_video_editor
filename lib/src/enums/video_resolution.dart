@@ -12,9 +12,6 @@ enum VideoResolution {
   /// 1080p resolution (1920x1080)
   p1080(1080),
 
-  /// 1440p resolution (2560x1440)
-  p1440(1440),
-
   /// 4K resolution (3840x2160)
   p2160(2160);
 

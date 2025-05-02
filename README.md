@@ -33,7 +33,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.1.0
+  easy_video_editor: ^0.1.1
 ```
 
 Or install via command line:
@@ -176,7 +176,7 @@ The main class for chaining video operations.
 - `rotate({required RotationDegree degree})`: Rotate video by 90, 180, or 270 degrees (outputs MP4)
 - `crop({required VideoAspectRatio aspectRatio})`: Crop video to predefined aspect ratio (outputs MP4)
 - `compress({VideoResolution resolution = VideoResolution.p720})`: Compress video to standard resolution (outputs MP4)
-  - Available resolutions: 360p, 480p, 720p, 1080p, 1440p, 2160p (4K)
+  - Available resolutions: 360p, 480p, 720p, 1080p, 2160p (4K)
   - Maintains original aspect ratio
 - `flip({required FlipDirection direction})`: Flip video horizontally or vertically (outputs MP4)
 - `export({String? outputPath, void Function(double progress)? onProgress})`: Process all operations and return output path (outputs MP4)

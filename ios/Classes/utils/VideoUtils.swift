@@ -612,104 +612,21 @@ class VideoUtils {
         }
         
         let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
-        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+        guard asset.tracks(withMediaType: .video).first != nil else {
             throw VideoError.invalidAsset
         }
-        
-        // Create composition
-        let composition = AVMutableComposition()
-        guard let compositionVideoTrack = composition.addMutableTrack(
-            withMediaType: .video,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
-            throw VideoError.exportFailed("Failed to create video track")
-        }
-        
-        // Add audio track if available
-        var compositionAudioTrack: AVMutableCompositionTrack?
-        if let audioTrack = asset.tracks(withMediaType: .audio).first {
-            compositionAudioTrack = composition.addMutableTrack(
-                withMediaType: .audio,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            )
-            try compositionAudioTrack?.insertTimeRange(
-                CMTimeRange(start: .zero, duration: asset.duration),
-                of: audioTrack,
-                at: .zero
-            )
-        }
-        
-        // Insert video track
-        try compositionVideoTrack.insertTimeRange(
-            CMTimeRange(start: .zero, duration: asset.duration),
-            of: videoTrack,
-            at: .zero
-        )
-        
-        // Create video composition
-        let videoComposition = AVMutableVideoComposition()
-        
-        // Build transform that preserves the original orientation and scales to the target height.
-        let naturalSize = videoTrack.naturalSize
-        let preferredTransform = videoTrack.preferredTransform
-
-        // Bounding box of the video after applying the preferred transform
-        let originalRect = CGRect(origin: .zero, size: naturalSize)
-        var transform = preferredTransform
-        var transformedRect = originalRect.applying(transform)
-
-        // Determine scale factor (downscale only). If original height is smaller than target, keep original size.
-        var scaleFactor: CGFloat = 1.0
-        let targetHeightF = CGFloat(targetHeight)
-        if abs(transformedRect.height) > targetHeightF {
-            scaleFactor = targetHeightF / abs(transformedRect.height)
-            transform = transform.concatenating(CGAffineTransform(scaleX: scaleFactor, y: scaleFactor))
-            // Apply scale to rect to obtain its new size/position
-            transformedRect = transformedRect.applying(CGAffineTransform(scaleX: scaleFactor, y: scaleFactor))
-        }
-        
-        // Round translation to the nearest pixel to avoid sub-pixel artefacts
-        let translateX = -transformedRect.origin.x.rounded(.toNearestOrEven)
-        let translateY = -transformedRect.origin.y.rounded(.toNearestOrEven)
-        transform = transform.concatenating(CGAffineTransform(translationX: translateX,
-                                                             y: translateY))
-
-        // Final render size after orientation and scaling
-        var finalWidth = Int(abs(transformedRect.width).rounded())
-        var finalHeight = Int(abs(transformedRect.height).rounded())
-
-        // Ensure width/height are multiples of 16 (macroblock boundary) to avoid artefacts
-        if finalWidth % 16 != 0 {
-            finalWidth = max(16, (finalWidth / 16) * 16)
-        }
-        if finalHeight % 16 != 0 {
-            finalHeight = max(16, (finalHeight / 16) * 16)
-        }
-
-        // Still guarantee even numbers for H.264 requirement
-        if finalWidth % 2 != 0 { finalWidth += 1 }
-        if finalHeight % 2 != 0 { finalHeight += 1 }
-
-        videoComposition.renderSize = CGSize(width: finalWidth, height: finalHeight)
-        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
-
-        let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-        transformer.setTransform(transform, at: .zero)
-
-        instruction.layerInstructions = [transformer]
-        videoComposition.instructions = [instruction]
         
         // Generate output path
         let outputPath = NSTemporaryDirectory() + "compressed_video_\(Date().timeIntervalSince1970).mp4"
         let outputURL = URL(fileURLWithPath: outputPath)
         
+        // Select preset based on target height
+        let preset = getExportPresetForHeight(targetHeight)
+        
         // Create export session
         guard let exportSession = AVAssetExportSession(
-            asset: composition,
-            presetName: AVAssetExportPresetHighestQuality
+            asset: asset,
+            presetName: preset
         ) else {
             throw VideoError.invalidAsset
         }
@@ -717,10 +634,26 @@ class VideoUtils {
         // Configure export session
         exportSession.outputURL = outputURL
         exportSession.outputFileType = .mp4
-        exportSession.videoComposition = videoComposition
         
         try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputPath
+    }
+    
+    private static func getExportPresetForHeight(_ height: Int) -> String {
+        switch height {
+        case ..<480:
+            return AVAssetExportPresetLowQuality
+        case 480:
+            return AVAssetExportPreset640x480
+        case 720:
+            return AVAssetExportPreset1280x720
+        case 1080:
+            return AVAssetExportPreset1920x1080
+        case 2160:
+            return AVAssetExportPreset3840x2160
+        default:
+            return AVAssetExportPreset1280x720
+        }
     }
 
     // MARK: - Get Video Metadata
