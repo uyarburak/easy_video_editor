@@ -882,55 +882,67 @@ class VideoUtils {
             width: Int? = null,
             height: Int? = null,
             quality: Int = 80
-        ): String =
-            withContext(Dispatchers.IO) {
-                require(File(videoPath).exists()) { "Video file does not exist" }
-                require(positionMs >= 0) { "Position must be non-negative" }
-                require(quality in 0..100) { "Quality must be between 0 and 100" }
-                width?.let { require(it > 0) { "Width must be positive" } }
-                height?.let { require(it > 0) { "Height must be positive" } }
+        ): String = withContext(Dispatchers.IO) {
+            require(File(videoPath).exists()) { "Video file does not exist" }
+            require(positionMs >= 0) { "Position must be non-negative" }
+            require(quality in 0..100) { "Quality must be between 0 and 100" }
+            width?.let { require(it > 0) { "Width must be positive" } }
+            height?.let { require(it > 0) { "Height must be positive" } }
 
-                val retriever = MediaMetadataRetriever()
-                return@withContext try {
-                    retriever.setDataSource(videoPath)
+            val retriever = MediaMetadataRetriever()
+            return@withContext try {
+                retriever.setDataSource(videoPath)
 
-                    // Get video duration to validate position
-                    val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
-                        ?: throw VideoException("Could not determine video duration")
-                    require(positionMs <= durationMs) { "Position exceeds video duration" }
+                val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+                    ?: throw VideoException("Could not determine video duration")
+                require(positionMs <= durationMs) { "Position exceeds video duration" }
 
-                    val bitmap =
-                        retriever.getFrameAtTime(
-                            positionMs * 1000, // Convert to microseconds
-                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                        )
-                            ?: throw VideoException("Failed to generate thumbnail")
+                val bitmap = retriever.getFrameAtTime(
+                    positionMs * 1000L, // milliseconds to microseconds
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                ) ?: throw VideoException("Failed to generate thumbnail")
 
-                    val scaledBitmap =
-                        if (width != null && height != null) {
-                            bitmap.scale(width, height)
-                        } else {
-                            bitmap
-                        }
+                val scaledBitmap = if (width != null && height != null) {
+                    val aspectRatio = bitmap.width.toFloat() / bitmap.height
+                    val targetRatio = width.toFloat() / height
 
-                    val outputFile =
-                        File(context.cacheDir, "thumbnail_${System.currentTimeMillis()}.jpg")
-                            .apply { if (exists()) delete() } // Delete if exists
+                    val finalWidth: Int
+                    val finalHeight: Int
 
-                    FileOutputStream(outputFile).use { out ->
-                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                    if (aspectRatio > targetRatio) {
+                        finalWidth = width
+                        finalHeight = (width / aspectRatio).toInt()
+                    } else {
+                        finalHeight = height
+                        finalWidth = (height * aspectRatio).toInt()
                     }
 
-                    if (scaledBitmap != bitmap) scaledBitmap.recycle()
-                    bitmap.recycle()
-
-                    outputFile.absolutePath
-                } catch (e: Exception) {
-                    throw VideoException("Error generating thumbnail: ${e.message}", e)
-                } finally {
-                    retriever.release()
+                    bitmap.scale(finalWidth, finalHeight)
+                } else {
+                    bitmap
                 }
+
+                val outputFile = File(context.cacheDir, "thumbnail_${System.currentTimeMillis()}.jpg").apply {
+                    if (exists()) delete()
+                }
+
+                FileOutputStream(outputFile).use { out ->
+                    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                }
+
+                if (scaledBitmap != bitmap) scaledBitmap.recycle()
+                bitmap.recycle()
+
+                outputFile.absolutePath
+            } catch (e: OutOfMemoryError) {
+                throw VideoException("Out of memory while generating thumbnail", e)
+            } catch (e: Exception) {
+                throw VideoException("Error generating thumbnail: ${e.message}", e)
+            } finally {
+                retriever.release()
             }
+        }
+
 
         suspend fun flipVideo(context: Context, videoPath: String, flipDirection: String): String {
             // File operations on IO thread
