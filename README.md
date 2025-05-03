@@ -33,7 +33,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.1.1
+  easy_video_editor: ^0.1.2
 ```
 
 Or install via command line:

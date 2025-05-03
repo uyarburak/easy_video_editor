@@ -1,3 +1,7 @@
+## 0.1.2
+
+- Fix generate thumbnail issue on Android
+
 ## 0.1.1
 
 - Fix compress video issue on Android and change logic compress video
