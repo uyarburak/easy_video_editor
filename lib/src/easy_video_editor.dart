@@ -126,4 +126,12 @@ class EasyVideoEditor {
   Future<String?> maxFps(String videoPath, int maxFps) {
     return EasyVideoEditorPlatform.instance.maxFps(videoPath, maxFps);
   }
+
+  /// Ensures video dimensions are even numbers and adds padding if needed.
+  /// This helps with compatibility in some video players that require even dimensions.
+  ///
+  /// [videoPath] is the path to the video file.
+  Future<String?> ensureEvenDimensions(String videoPath) {
+    return EasyVideoEditorPlatform.instance.ensureEvenDimensions(videoPath);
+  }
 }

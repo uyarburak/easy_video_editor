@@ -18,7 +18,8 @@ enum class MethodName(val methodName: String) {
     CANCEL_OPERATION("cancelOperation"),
     GET_VIDEO_METADATA("getVideoMetadata"),
     FLIP_VIDEO("flipVideo"),
-    MAX_FPS("maxFps");
+    MAX_FPS("maxFps"),
+    ENSURE_EVEN_DIMENSIONS("ensureEvenDimensions");
 
     companion object {
         fun fromString(method: String): MethodName? {
@@ -42,6 +43,7 @@ class CommandHandler (private val context: Context) {
         MethodName.GET_VIDEO_METADATA to GetVideoMetadataCommand(context),
         MethodName.FLIP_VIDEO to FlipVideoCommand(context),
         MethodName.MAX_FPS to MaxFpsCommand(context),
+        MethodName.ENSURE_EVEN_DIMENSIONS to EnsureEvenDimensionsCommand(context)
     )
 
     fun handleCommand(call: MethodCall, result: MethodChannel.Result) {

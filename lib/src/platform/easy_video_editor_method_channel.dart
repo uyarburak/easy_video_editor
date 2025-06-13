@@ -158,4 +158,15 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
     });
     return result;
   }
+
+  @override
+  Future<String?> ensureEvenDimensions(String videoPath) async {
+    final String? result = await methodChannel.invokeMethod<String>(
+      'ensureEvenDimensions',
+      {
+        'videoPath': videoPath,
+      },
+    );
+    return result;
+  }
 }

@@ -1156,6 +1156,121 @@ class VideoUtils {
                 }
             }
         }
+
+        suspend fun ensureEvenDimensions(context: Context, videoPath: String): String {
+            // File operations on IO thread
+            withContext(Dispatchers.IO) {
+                require(File(videoPath).exists()) { "Input video file does not exist" }
+            }
+
+            val outputFile = withContext(Dispatchers.IO) {
+                File(context.cacheDir, "even_dimensions_video_${System.currentTimeMillis()}.mp4")
+                    .apply { if (exists()) delete() }
+            }
+
+            // Get video dimensions
+            val retriever = MediaMetadataRetriever()
+            val (originalWidth, originalHeight) = withContext(Dispatchers.IO) {
+                try {
+                    retriever.setDataSource(videoPath)
+                    val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+                    val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+                    width to height
+                } finally {
+                    retriever.release()
+                }
+            }
+
+            // Calculate new dimensions (make them even)
+            var newWidth = originalWidth
+            var newHeight = originalHeight
+            
+            if (newWidth % 2 != 0) newWidth++
+            if (newHeight % 2 != 0) newHeight++
+
+            // Calculate scale to maintain aspect ratio
+            val scaleX = newWidth.toFloat() / originalWidth
+            val scaleY = newHeight.toFloat() / originalHeight
+            val scale = minOf(scaleX, scaleY)
+
+            // Transformer operations on Main thread
+            return withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { continuation ->
+                    val mediaItem =
+                        MediaItem.Builder().setUri(Uri.fromFile(File(videoPath))).build()
+
+                    val editedMediaItem =
+                        EditedMediaItem.Builder(mediaItem)
+                            .setEffects(
+                                Effects(
+                                    emptyList(),
+                                    listOf(
+                                        ScaleAndRotateTransformation.Builder()
+                                            .setScale(scale, scale)
+                                            .build()
+                                    )
+                                )
+                            )
+                            .build()
+
+                    val transformer =
+                        Transformer.Builder(context)
+                            .addListener(
+                                object : Transformer.Listener {
+                                    override fun onCompleted(
+                                        composition: Composition,
+                                        exportResult: ExportResult
+                                    ) {
+                                        if (continuation.isActive) {
+                                            continuation.resume(outputFile.absolutePath)
+                                        }
+                                    }
+
+                                    override fun onError(
+                                        composition: Composition,
+                                        exportResult: ExportResult,
+                                        exportException: ExportException
+                                    ) {
+                                        if (continuation.isActive) {
+                                            continuation.resumeWithException(
+                                                VideoException(
+                                                    "Failed to adjust dimensions: ${exportException.message}",
+                                                    exportException
+                                                )
+                                            )
+                                        }
+                                        outputFile.delete()
+                                    }
+                                }
+                            )
+                            .build()
+
+                    transformer.start(editedMediaItem, outputFile.absolutePath)
+
+                    // Set up progress tracking
+                    val progressHolder = androidx.media3.transformer.ProgressHolder()
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    mainHandler.post(
+                        object : Runnable {
+                            override fun run() {
+                                val progressState = transformer.getProgress(progressHolder)
+                                if (progressHolder.progress >= 0) {
+                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
+                                }
+                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                                    mainHandler.postDelayed(this, 200)
+                                }
+                            }
+                        }
+                    )
+
+                    continuation.invokeOnCancellation {
+                        transformer.cancel()
+                        outputFile.delete()
+                    }
+                }
+            }
+        }
     }
 }
 

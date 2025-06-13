@@ -15,6 +15,7 @@ enum MethodName: String {
     case getVideoMetadata = "getVideoMetadata"
     case flipVideo = "flipVideo"
     case maxFps = "maxFps"
+    case ensureEvenDimensions = "ensureEvenDimensions"
 }
 
 class CommandHandler {
@@ -34,7 +35,8 @@ class CommandHandler {
             .cancelOperation: CancelOperationCommand(),
             .getVideoMetadata: GetVideoMetadataCommand(),
             .flipVideo: FlipVideoCommand(),
-            .maxFps: MaxFpsCommand()
+            .maxFps: MaxFpsCommand(),
+            .ensureEvenDimensions: EnsureEvenDimensionsCommand()
         ]
     }
     

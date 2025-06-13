@@ -884,4 +884,95 @@ class VideoUtils {
         try exportWithCancellation(exportSession: exportSession, workItem: workItem)
         return outputURL.path
     }
+
+    // MARK: - Ensure Even Dimensions
+    static func ensureEvenDimensions(videoPath: String, workItem: DispatchWorkItem? = nil) throws -> String {
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        
+        let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        let composition = AVMutableComposition()
+        
+        // Create video track
+        guard let compositionVideoTrack = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid),
+              let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+        
+        do {
+            // Insert video track
+            try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+            
+            // Add audio track if present
+            if let audioTrack = asset.tracks(withMediaType: .audio).first,
+               let compositionAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid) {
+                try compositionAudioTrack.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            }
+            
+            // Get original size
+            let originalSize = videoTrack.naturalSize
+            let originalTransform = videoTrack.preferredTransform
+            
+            // Calculate new dimensions (make them even)
+            var newWidth = Int(originalSize.width)
+            var newHeight = Int(originalSize.height)
+            
+            if newWidth % 2 != 0 { newWidth += 1 }
+            if newHeight % 2 != 0 { newHeight += 1 }
+            
+            // Create video composition
+            let videoComposition = AVMutableVideoComposition()
+            videoComposition.renderSize = CGSize(width: newWidth, height: newHeight)
+            videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+            
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = timeRange
+            
+            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+            
+            // Calculate transform to center the video
+            let scaleX = CGFloat(newWidth) / originalSize.width
+            let scaleY = CGFloat(newHeight) / originalSize.height
+            let scale = min(scaleX, scaleY)
+            
+            var transform = originalTransform
+            transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            
+            // Center the video
+            let xOffset = (CGFloat(newWidth) - originalSize.width * scale) / 2
+            let yOffset = (CGFloat(newHeight) - originalSize.height * scale) / 2
+            transform = transform.concatenating(CGAffineTransform(translationX: xOffset, y: yOffset))
+            
+            layerInstruction.setTransform(transform, at: .zero)
+            instruction.layerInstructions = [layerInstruction]
+            videoComposition.instructions = [instruction]
+            
+            // Export
+            let outputPath = NSTemporaryDirectory() + UUID().uuidString + ".mp4"
+            let outputURL = URL(fileURLWithPath: outputPath)
+            
+            guard let exportSession = AVAssetExportSession(
+                asset: composition,
+                presetName: AVAssetExportPresetHighestQuality
+            ) else {
+                throw VideoError.invalidAsset
+            }
+            
+            exportSession.outputURL = outputURL
+            exportSession.outputFileType = .mp4
+            exportSession.videoComposition = videoComposition
+            
+            try exportWithCancellation(exportSession: exportSession, workItem: workItem)
+            return outputPath
+        } catch {
+            throw VideoError.exportFailed(error.localizedDescription)
+        }
+    }
 }

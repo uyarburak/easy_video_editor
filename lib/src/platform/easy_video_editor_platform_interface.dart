@@ -171,4 +171,13 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
   Future<String?> maxFps(String videoPath, int maxFps) {
     throw UnimplementedError('maxFps() has not been implemented.');
   }
+
+  /// Ensures video dimensions are even numbers and adds padding if needed.
+  /// This helps with compatibility in some video players that require even dimensions.
+  ///
+  /// [videoPath] is the path to the video file.
+  Future<String?> ensureEvenDimensions(String videoPath) {
+    throw UnimplementedError(
+        'ensureEvenDimensions() has not been implemented.');
+  }
 }
