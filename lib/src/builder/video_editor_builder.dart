@@ -102,6 +102,17 @@ class VideoEditorBuilder {
     return this;
   }
 
+  /// Adds max FPS operation
+  ///
+  /// [maxFps] Maximum frames per second to set for the video
+  VideoEditorBuilder maxFps({required int maxFps}) {
+    _operations.add(VideoOperation(
+      VideoOperationType.maxFps,
+      {'maxFps': maxFps},
+    ));
+    return this;
+  }
+
   /// Executes all operations in sequence and returns the final video path
   ///
   /// [outputPath] Optional path where the final video will be saved.
@@ -244,6 +255,12 @@ class VideoEditorBuilder {
         return await _editor.flipVideo(
           inputPath,
           operation.params['flipDirection'] as FlipDirection,
+        );
+
+      case VideoOperationType.maxFps:
+        return await _editor.maxFps(
+          inputPath,
+          operation.params['maxFps'] as int,
         );
     }
   }

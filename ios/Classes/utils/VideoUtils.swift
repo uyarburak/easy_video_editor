@@ -267,6 +267,71 @@ class VideoUtils {
         return try export(composition: composition, outputURL: outputURL, workItem: workItem)
     }
     
+    // MARK: - Set Max FPS
+    static func setMaxFps(videoPath: String, maxFps: Int, workItem: DispatchWorkItem? = nil) throws -> String {
+        guard FileManager.default.fileExists(atPath: videoPath) else {
+            throw VideoError.fileNotFound
+        }
+        guard maxFps > 0 else {
+            throw VideoError.invalidParameters
+        }
+        
+        let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        let composition = AVMutableComposition()
+        
+        // Create tracks
+        guard let compositionVideoTrack = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid),
+              let compositionAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid),
+              let videoTrack = asset.tracks(withMediaType: .video).first,
+              let audioTrack = asset.tracks(withMediaType: .audio).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+        
+        do {
+            // Insert video and audio tracks
+            try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+            try compositionAudioTrack.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            
+            // Create video composition instructions
+            let videoComposition = AVMutableVideoComposition()
+            videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(maxFps))
+            videoComposition.renderSize = videoTrack.naturalSize
+            
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = timeRange
+            
+            let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+            instruction.layerInstructions = [transformer]
+            videoComposition.instructions = [instruction]
+            
+            // Export
+            let outputPath = NSTemporaryDirectory() + UUID().uuidString + ".mp4"
+            let outputURL = URL(fileURLWithPath: outputPath)
+            
+            guard let exportSession = AVAssetExportSession(
+                asset: composition,
+                presetName: AVAssetExportPresetHighestQuality
+            ) else {
+                throw VideoError.invalidAsset
+            }
+            
+            exportSession.outputURL = outputURL
+            exportSession.outputFileType = .mp4
+            exportSession.videoComposition = videoComposition
+            
+            try exportWithCancellation(exportSession: exportSession, workItem: workItem)
+            return outputPath
+        } catch {
+            throw VideoError.exportFailed(error.localizedDescription)
+        }
+    }
+    
     // MARK: - Scale Video
     static func scaleVideo(videoPath: String, width: Float, height: Float, workItem: DispatchWorkItem? = nil) throws -> String {
         guard FileManager.default.fileExists(atPath: videoPath) else {

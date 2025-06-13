@@ -163,4 +163,12 @@ abstract class EasyVideoEditorPlatform extends PlatformInterface {
   Future<String?> flipVideo(String videoPath, FlipDirection flipDirection) {
     throw UnimplementedError('flipVideo() has not been implemented.');
   }
+
+  /// Sets the maximum frames per second (FPS) for a video.
+  ///
+  /// [videoPath] is the path to the video file.
+  /// [maxFps] is the maximum frames per second to set for the video.
+  Future<String?> maxFps(String videoPath, int maxFps) {
+    throw UnimplementedError('maxFps() has not been implemented.');
+  }
 }

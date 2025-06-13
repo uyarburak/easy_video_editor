@@ -1046,6 +1046,99 @@ class VideoUtils {
                 }
             }
         }
+
+        /**
+         * Sets the maximum frames per second (FPS) for a video
+         * @param context Android context
+         * @param videoPath Path to the input video file
+         * @param maxFps Maximum frames per second to set
+         * @return Path to the processed video file
+         */
+        suspend fun setMaxFps(
+            context: Context,
+            videoPath: String,
+            maxFps: Int
+        ): String {
+            withContext(Dispatchers.IO) {
+                require(File(videoPath).exists()) { "Input video file does not exist" }
+                require(maxFps > 0) { "Max FPS must be positive" }
+            }
+
+            // Create temp directory if it doesn't exist
+            val tempDir: String = context.getExternalFilesDir("easy_video_editor")!!.absolutePath
+            val outputFileName = "VID_${SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US).format(Date())}_${videoPath.hashCode()}.mp4"
+            val outputPath = "$tempDir${File.separator}$outputFileName"
+            val outputFile = File(outputPath)
+            if (outputFile.exists()) outputFile.delete()
+
+            return withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { continuation ->
+                    // Create data source
+                    val dataSource = UriDataSource(context, videoPath.toUri())
+
+                    // Configure video strategy with max FPS
+                    val videoTrackStrategy = DefaultVideoStrategy.builder()
+                        .maxFrameRate(maxFps)
+                        .build()
+
+                    // Configure audio strategy - keep original audio
+                    val audioTrackStrategy = DefaultAudioStrategy.builder()
+                        .channels(DefaultAudioStrategy.CHANNELS_AS_INPUT)
+                        .sampleRate(DefaultAudioStrategy.SAMPLE_RATE_AS_INPUT)
+                        .build()
+
+                    // Create a variable to store the transcode future for cancellation
+                    val transcodeFuture = Transcoder.into(outputPath)
+                        .addDataSource(dataSource)
+                        .setVideoTrackStrategy(videoTrackStrategy)
+                        .setAudioTrackStrategy(audioTrackStrategy)
+                        .setListener(object : TranscoderListener {
+                            override fun onTranscodeProgress(progress: Double) {
+                                // Report progress to ProgressManager (0.0 to 1.0)
+                                ProgressManager.getInstance().reportProgress(progress)
+                            }
+
+                            override fun onTranscodeCompleted(successCode: Int) {
+                                if (continuation.isActive) {
+                                    // Mark progress as 100% complete
+                                    ProgressManager.getInstance().reportProgress(1.0)
+                                    // Return the output path to the caller
+                                    continuation.resume(outputPath)
+                                }
+                            }
+
+                            override fun onTranscodeCanceled() {
+                                if (continuation.isActive) {
+                                    continuation.resumeWithException(
+                                        VideoException("Video FPS adjustment was canceled")
+                                    )
+                                }
+                                // Clean up output file if canceled
+                                outputFile.delete()
+                            }
+
+                            override fun onTranscodeFailed(exception: Throwable) {
+                                if (continuation.isActive) {
+                                    continuation.resumeWithException(
+                                        VideoException(
+                                            "Failed to adjust video FPS: ${exception.message}",
+                                            exception
+                                        )
+                                    )
+                                }
+                                // Clean up output file if failed
+                                outputFile.delete()
+                            }
+                        }).transcode()
+
+                    // Set up cancellation handling
+                    continuation.invokeOnCancellation {
+                        transcodeFuture.cancel(true)
+                        outputFile.delete()
+                    }
+                }
+            }
+        }
     }
 }
 

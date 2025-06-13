@@ -97,6 +97,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _maxFps() async {
+    try {
+      final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
+          .maxFps(maxFps: 30);
+
+      final result = await editor.export();
+      setState(() {
+        _status = 'Video max FPS: $result';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Error: $e';
+      });
+    }
+  }
+
   Future<void> _generateThumbnail() async {
     try {
       final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4');
@@ -183,6 +199,11 @@ class _HomePageState extends State<HomePage> {
             ElevatedButton(
               onPressed: _flipVideo,
               child: const Text('Flip Video'),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _maxFps,
+              child: const Text('Max FPS'),
             ),
             const SizedBox(height: 10),
             // Progress indicator

@@ -23,4 +23,7 @@ enum VideoOperationType {
 
   /// Flip video
   flip,
+
+  /// Set maximum frames per second
+  maxFps,
 }

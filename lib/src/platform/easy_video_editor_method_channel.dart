@@ -149,4 +149,13 @@ class MethodChannelEasyVideoEditor extends EasyVideoEditorPlatform {
     });
     return result;
   }
+
+  @override
+  Future<String?> maxFps(String videoPath, int maxFps) async {
+    final result = await methodChannel.invokeMethod<String>('maxFps', {
+      'videoPath': videoPath,
+      'maxFps': maxFps,
+    });
+    return result;
+  }
 }

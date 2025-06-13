@@ -22,6 +22,7 @@ A powerful Flutter plugin for video editing operations with a simple, chainable 
 - 🗜️ **Video Compression**:
   - Compress videos to standard resolutions (360p to 4K)
   - Maintains aspect ratio while resizing
+- 🎥 **Frame Rate Control**: Set maximum frames per second (FPS) for video
 - 🖼️ **Thumbnail Generation**: Create thumbnails from video frames
 - 📊 **Video Metadata**: Retrieve detailed information about video files
 - 🔗 **Builder Pattern API**: Chain operations for complex video editing
@@ -33,7 +34,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  easy_video_editor: ^0.1.2
+  easy_video_editor: ^0.1.3
 ```
 
 Or install via command line:
@@ -80,6 +81,9 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   // Adjust speed
   .speed(speed: 1.5)
 
+  // Set maximum FPS
+  .maxFps(maxFps: 30)
+
   // Compress video
   .compress(resolution: VideoResolution.p720)
 
@@ -87,7 +91,7 @@ final editor = VideoEditorBuilder(videoPath: '/path/to/video.mp4')
   .crop(aspectRatio: VideoAspectRatio.ratio16x9)
 
   // Rotate video
-  .rotate(degree: RotationDegree.d90);
+  .rotate(degree: RotationDegree.d90)
 
   // Flip video
   .flip(flipDirection: FlipDirection.horizontal);
@@ -172,6 +176,7 @@ The main class for chaining video operations.
 - `trim({required int startTimeMs, required int endTimeMs})`: Trim video to specified duration (outputs MP4)
 - `merge({required List<String> otherVideoPaths})`: Merge with other videos (outputs MP4)
 - `speed({required double speed})`: Adjust playback speed (e.g., 0.5 for half speed, 2.0 for double speed) (outputs MP4)
+- `maxFps({required int maxFps})`: Set maximum frames per second for the video (outputs MP4)
 - `removeAudio()`: Remove audio track (outputs MP4)
 - `rotate({required RotationDegree degree})`: Rotate video by 90, 180, or 270 degrees (outputs MP4)
 - `crop({required VideoAspectRatio aspectRatio})`: Crop video to predefined aspect ratio (outputs MP4)

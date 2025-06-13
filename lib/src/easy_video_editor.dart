@@ -110,7 +110,20 @@ class EasyVideoEditor {
   }
 
   /// Flips a video horizontally or vertically.
+  ///
+  /// [videoPath] is the path to the source video file.
+  /// [flipDirection] defines the direction to flip the video.
+  ///
+  /// Returns the path to the flipped video file, or null if the operation fails.
   Future<String?> flipVideo(String videoPath, FlipDirection flipDirection) {
     return EasyVideoEditorPlatform.instance.flipVideo(videoPath, flipDirection);
+  }
+
+  /// Sets the maximum frames per second (FPS) for a video.
+  ///
+  /// [videoPath] is the path to the video file.
+  /// [maxFps] is the maximum frames per second to set for the video.
+  Future<String?> maxFps(String videoPath, int maxFps) {
+    return EasyVideoEditorPlatform.instance.maxFps(videoPath, maxFps);
   }
 }
