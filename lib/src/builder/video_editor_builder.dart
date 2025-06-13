@@ -113,6 +113,15 @@ class VideoEditorBuilder {
     return this;
   }
 
+  /// Adds ensure even dimensions operation
+  VideoEditorBuilder ensureEvenDimensions() {
+    _operations.add(const VideoOperation(
+      VideoOperationType.ensureEvenDimensions,
+      {},
+    ));
+    return this;
+  }
+
   /// Executes all operations in sequence and returns the final video path
   ///
   /// [outputPath] Optional path where the final video will be saved.
@@ -262,6 +271,9 @@ class VideoEditorBuilder {
           inputPath,
           operation.params['maxFps'] as int,
         );
+
+      case VideoOperationType.ensureEvenDimensions:
+        return await _editor.ensureEvenDimensions(inputPath);
     }
   }
 

@@ -26,4 +26,7 @@ enum VideoOperationType {
 
   /// Set maximum frames per second
   maxFps,
+
+  /// Ensure even dimensions
+  ensureEvenDimensions,
 }
