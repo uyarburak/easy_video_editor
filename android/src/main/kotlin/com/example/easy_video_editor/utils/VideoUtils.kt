@@ -479,6 +479,17 @@ class VideoUtils {
                     .apply { if (exists()) delete() }
             }
 
+            // Check if video has audio
+            val hasAudio = withContext(Dispatchers.IO) {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(videoPath)
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)?.toInt() == 1
+                } finally {
+                    retriever.release()
+                }
+            }
+
             // Transformer operations on Main thread
             return withContext(Dispatchers.Main) {
                 suspendCancellableCoroutine { continuation ->
@@ -486,11 +497,17 @@ class VideoUtils {
                         MediaItem.Builder().setUri(Uri.fromFile(File(videoPath))).build()
 
                     val videoEffect = SpeedChangeEffect(speedMultiplier)
-                    val audio = SonicAudioProcessor()
                     
-                    audio.setSpeed(speedMultiplier)
+                    // Only create audio processor if video has audio
+                    val audioEffects = if (hasAudio) {
+                        val audio = SonicAudioProcessor()
+                        audio.setSpeed(speedMultiplier)
+                        listOf(audio)
+                    } else {
+                        emptyList()
+                    }
 
-                    val effects = Effects(listOf(audio), listOf(videoEffect))
+                    val effects = Effects(audioEffects, listOf(videoEffect))
                     
                     val editedMediaItem = EditedMediaItem.Builder(mediaItem).setEffects(effects).build()
                     
