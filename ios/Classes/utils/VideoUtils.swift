@@ -279,24 +279,27 @@ class VideoUtils {
         let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
         let composition = AVMutableComposition()
         
-        // Create tracks
+        // Create video track
         guard let compositionVideoTrack = composition.addMutableTrack(
                 withMediaType: .video,
                 preferredTrackID: kCMPersistentTrackID_Invalid),
-              let compositionAudioTrack = composition.addMutableTrack(
-                withMediaType: .audio,
-                preferredTrackID: kCMPersistentTrackID_Invalid),
-              let videoTrack = asset.tracks(withMediaType: .video).first,
-              let audioTrack = asset.tracks(withMediaType: .audio).first else {
+              let videoTrack = asset.tracks(withMediaType: .video).first else {
             throw VideoError.invalidAsset
         }
         
         let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
         
         do {
-            // Insert video and audio tracks
+            // Insert video track
             try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
-            try compositionAudioTrack.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            
+            // Add audio track if present
+            if let audioTrack = asset.tracks(withMediaType: .audio).first,
+               let compositionAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid) {
+                try compositionAudioTrack.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            }
             
             // Create video composition instructions
             let videoComposition = AVMutableVideoComposition()
