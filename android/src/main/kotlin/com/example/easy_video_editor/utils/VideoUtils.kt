@@ -33,6 +33,8 @@ import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.core.net.toUri
+import android.media.MediaExtractor
+import android.media.MediaFormat
 
 @UnstableApi
 class VideoUtils {
@@ -1079,6 +1081,42 @@ class VideoUtils {
             withContext(Dispatchers.IO) {
                 require(File(videoPath).exists()) { "Input video file does not exist" }
                 require(maxFps > 0) { "Max FPS must be positive" }
+            }
+
+            // Get input video's frame rate using MediaMetadataRetriever
+            val inputFrameRate = withContext(Dispatchers.IO) {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(videoPath)
+                    // Try to get frame rate from metadata
+                    var frameRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull()
+                    
+                    // If frame rate is not available in metadata, try to get it from MediaFormat
+                    if (frameRate == null || frameRate <= 0) {
+                        val mediaExtractor = MediaExtractor()
+                        try {
+                            mediaExtractor.setDataSource(videoPath)
+                            for (i in 0 until mediaExtractor.trackCount) {
+                                val format = mediaExtractor.getTrackFormat(i)
+                                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
+                                    frameRate = format.getInteger(MediaFormat.KEY_FRAME_RATE).toFloat()
+                                    break
+                                }
+                            }
+                        } finally {
+                            mediaExtractor.release()
+                        }
+                    }
+                    
+                    frameRate ?: 0f
+                } finally {
+                    retriever.release()
+                }
+            }
+
+            // If input frame rate is already lower than or equal to maxFps, return original video
+            if (inputFrameRate <= maxFps) {
+                return videoPath
             }
 
             // Create temp directory if it doesn't exist

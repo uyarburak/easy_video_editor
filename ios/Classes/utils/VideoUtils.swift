@@ -280,13 +280,25 @@ class VideoUtils {
         }
         
         let asset = AVAsset(url: URL(fileURLWithPath: videoPath))
+        
+        // Get the input video's frame rate
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw VideoError.invalidAsset
+        }
+        
+        let inputFrameRate = videoTrack.nominalFrameRate
+        
+        // If input frame rate is already lower than or equal to maxFps, return original video
+        if inputFrameRate <= Float(maxFps) {
+            return videoPath
+        }
+        
         let composition = AVMutableComposition()
         
         // Create video track
         guard let compositionVideoTrack = composition.addMutableTrack(
                 withMediaType: .video,
-                preferredTrackID: kCMPersistentTrackID_Invalid),
-              let videoTrack = asset.tracks(withMediaType: .video).first else {
+                preferredTrackID: kCMPersistentTrackID_Invalid) else {
             throw VideoError.invalidAsset
         }
         

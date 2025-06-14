@@ -25,6 +25,31 @@ class MaxFpsCommand: Command {
                 DispatchQueue.main.async {
                     result(outputPath)
                 }
+            } catch let error as VideoError {
+                DispatchQueue.main.async {
+                    switch error {
+                    case .fileNotFound:
+                        result(FlutterError(code: "FILE_NOT_FOUND",
+                                          message: "Video file not found",
+                                          details: nil))
+                    case .invalidParameters:
+                        result(FlutterError(code: "INVALID_PARAMETERS",
+                                          message: "Invalid parameters provided",
+                                          details: nil))
+                    case .exportFailed(let message):
+                        result(FlutterError(code: "EXPORT_FAILED",
+                                          message: message,
+                                          details: nil))
+                    case .invalidAsset:
+                        result(FlutterError(code: "INVALID_ASSET",
+                                          message: "Invalid video asset",
+                                          details: nil))
+                    default:
+                        result(FlutterError(code: "MAX_FPS_ERROR",
+                                          message: error.localizedDescription,
+                                          details: nil))
+                    }
+                }
             } catch {
                 DispatchQueue.main.async {
                     result(FlutterError(code: "MAX_FPS_ERROR",
