@@ -1132,8 +1132,8 @@ class VideoUtils {
                     val dataSource = UriDataSource(context, videoPath.toUri())
 
                     // Configure video strategy with max FPS
-                    val videoTrackStrategy = DefaultVideoStrategy.builder()
-                        .maxFrameRate(maxFps)
+                    val videoTrackStrategy = DefaultVideoStrategy.Builder()
+                        .frameRate(maxFps)
                         .build()
 
                     // Configure audio strategy - keep original audio
