@@ -1253,6 +1253,7 @@ class VideoUtils {
             var audioExtractor: MediaExtractor? = null
             var muxerStarted = false
             var audioTrackStarted = false
+            var videoTrackIndex = -1
 
             try {
                 // Crop to the nearest even dimensions by subtracting 1 if odd.
@@ -1282,8 +1283,6 @@ class VideoUtils {
                 videoEncoder.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 val inputSurface = videoEncoder.createInputSurface()
                 videoEncoder.start()
-                var videoTrackIndex = -1
-                val bufferInfo = MediaCodec.BufferInfo()
 
                 // --- Audio Setup ---
                 audioExtractor = MediaExtractor().apply { setDataSource(inputPath) }
@@ -1298,6 +1297,8 @@ class VideoUtils {
                 // --- Main Video Processing Loop ---
                 val frameIntervalUs = 1_000_000L / frameRate
                 var presentationTimeUs = 0L
+                var firstFrameProcessed = false
+                val bufferInfo = MediaCodec.BufferInfo()
 
                 while (presentationTimeUs < totalDurationUs) {
                     val originalBitmap = retriever.getFrameAtTime(presentationTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
@@ -1312,16 +1313,27 @@ class VideoUtils {
                     }
                     originalBitmap.recycle()
 
-                    drainEncoder(videoEncoder, muxer, bufferInfo, false)?.let { newVideoTrack ->
-                        if(videoTrackIndex == -1) {
-                            videoTrackIndex = newVideoTrack
-                            // Start muxer only when we have the video track
+                    // Process the encoder output
+                    val newVideoTrack = drainEncoder(videoEncoder, muxer, bufferInfo, false)
+                    if (newVideoTrack != null && videoTrackIndex == -1) {
+                        videoTrackIndex = newVideoTrack
+                        // Only start muxer after we have valid video data
+                        if (bufferInfo.size > 0) {
                             muxer.start()
                             muxerStarted = true
+                            firstFrameProcessed = true
                         }
                     }
+
                     presentationTimeUs += frameIntervalUs
                 }
+
+                // Ensure we have processed at least one frame
+                if (!firstFrameProcessed) {
+                    throw IOException("Failed to process any video frames")
+                }
+
+                // Signal end of video stream
                 videoEncoder.signalEndOfInputStream()
                 drainEncoder(videoEncoder, muxer, bufferInfo, true)
 
@@ -1349,6 +1361,11 @@ class VideoUtils {
                         
                         if (!audioExtractor.advance()) break
                     }
+                }
+
+                // Verify the output file was created and has content
+                if (!outputFile.exists() || outputFile.length() == 0L) {
+                    throw IOException("Output file was not created or is empty")
                 }
 
                 return outputFile.absolutePath
@@ -1393,12 +1410,16 @@ class VideoUtils {
             while (true) {
                 when (val status = encoder.dequeueOutputBuffer(bufferInfo, IO_TIMEOUT_US)) {
                     MediaCodec.INFO_TRY_AGAIN_LATER -> if (!endOfStream) break
-                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrackIndex = muxer.addTrack(encoder.outputFormat)
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        videoTrackIndex = muxer.addTrack(encoder.outputFormat)
+                        Log.d(REPAIR_TAG, "Video track format changed, new track index: $videoTrackIndex")
+                    }
                     else -> {
                         val encodedData = encoder.getOutputBuffer(status) ?: break
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && bufferInfo.size != 0) {
                             try {
                                 muxer.writeSampleData(videoTrackIndex ?: -1, encodedData, bufferInfo)
+                                Log.d(REPAIR_TAG, "Wrote video sample, size: ${bufferInfo.size}, pts: ${bufferInfo.presentationTimeUs}")
                             } catch (e: Exception) {
                                 Log.e(REPAIR_TAG, "Error writing video sample", e)
                                 throw IOException("Failed to write video data", e)
