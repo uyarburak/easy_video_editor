@@ -1252,6 +1252,7 @@ class VideoUtils {
             var videoEncoder: MediaCodec? = null
             var audioExtractor: MediaExtractor? = null
             var muxerStarted = false
+            var audioTrackStarted = false
 
             try {
                 // Crop to the nearest even dimensions by subtracting 1 if odd.
@@ -1314,11 +1315,9 @@ class VideoUtils {
                     drainEncoder(videoEncoder, muxer, bufferInfo, false)?.let { newVideoTrack ->
                         if(videoTrackIndex == -1) {
                             videoTrackIndex = newVideoTrack
-                            // If audio track is also ready, start muxer
-                            if(audioTrackIndexInMuxer != -1) {
-                                muxer.start()
-                                muxerStarted = true
-                            }
+                            // Start muxer only when we have the video track
+                            muxer.start()
+                            muxerStarted = true
                         }
                     }
                     presentationTimeUs += frameIntervalUs
@@ -1327,19 +1326,28 @@ class VideoUtils {
                 drainEncoder(videoEncoder, muxer, bufferInfo, true)
 
                 // --- Audio Passthrough Loop ---
-                if (audioTrackIndexInExtractor != -1) {
-                    if (!muxerStarted) {
-                        muxer.start()
-                        muxerStarted = true
-                    }
+                if (audioTrackIndexInExtractor != -1 && muxerStarted) {
+                    audioTrackStarted = true
                     val audioBuffer = ByteBuffer.allocate(1024 * 1024)
+                    val audioBufferInfo = MediaCodec.BufferInfo()
+                    
                     while (true) {
                         val chunkSize = audioExtractor.readSampleData(audioBuffer, 0)
                         if (chunkSize < 0) break
-                        muxer.writeSampleData(audioTrackIndexInMuxer, audioBuffer, MediaCodec.BufferInfo().apply {
-                            offset = 0; size = chunkSize; presentationTimeUs = audioExtractor.sampleTime; flags = audioExtractor.sampleFlags
-                        })
-                        audioExtractor.advance()
+                        
+                        audioBufferInfo.offset = 0
+                        audioBufferInfo.size = chunkSize
+                        audioBufferInfo.presentationTimeUs = audioExtractor.sampleTime
+                        audioBufferInfo.flags = audioExtractor.sampleFlags
+                        
+                        try {
+                            muxer.writeSampleData(audioTrackIndexInMuxer, audioBuffer, audioBufferInfo)
+                        } catch (e: Exception) {
+                            Log.e(REPAIR_TAG, "Error writing audio sample", e)
+                            throw IOException("Failed to write audio data", e)
+                        }
+                        
+                        if (!audioExtractor.advance()) break
                     }
                 }
 
@@ -1350,17 +1358,32 @@ class VideoUtils {
                 outputFile.delete()
                 throw IOException("Failed to repair video", e)
             } finally {
-                videoEncoder?.stop()
-                videoEncoder?.release()
-                audioExtractor?.release()
-                if (muxerStarted) {
-                    try {
-                        muxer?.stop()
-                    } catch (e: Exception) {
-                        Log.e(REPAIR_TAG, "Error stopping muxer", e)
-                    }
+                try {
+                    videoEncoder?.stop()
+                    videoEncoder?.release()
+                } catch (e: Exception) {
+                    Log.e(REPAIR_TAG, "Error cleaning up video encoder", e)
                 }
-                muxer?.release()
+
+                try {
+                    audioExtractor?.release()
+                } catch (e: Exception) {
+                    Log.e(REPAIR_TAG, "Error cleaning up audio extractor", e)
+                }
+
+                try {
+                    if (muxerStarted) {
+                        muxer?.stop()
+                    }
+                } catch (e: Exception) {
+                    Log.e(REPAIR_TAG, "Error stopping muxer", e)
+                }
+
+                try {
+                    muxer?.release()
+                } catch (e: Exception) {
+                    Log.e(REPAIR_TAG, "Error releasing muxer", e)
+                }
             }
         }
 
@@ -1374,7 +1397,12 @@ class VideoUtils {
                     else -> {
                         val encodedData = encoder.getOutputBuffer(status) ?: break
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && bufferInfo.size != 0) {
-                            muxer.writeSampleData(videoTrackIndex ?: -1, encodedData, bufferInfo)
+                            try {
+                                muxer.writeSampleData(videoTrackIndex ?: -1, encodedData, bufferInfo)
+                            } catch (e: Exception) {
+                                Log.e(REPAIR_TAG, "Error writing video sample", e)
+                                throw IOException("Failed to write video data", e)
+                            }
                         }
                         encoder.releaseOutputBuffer(status, false)
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
