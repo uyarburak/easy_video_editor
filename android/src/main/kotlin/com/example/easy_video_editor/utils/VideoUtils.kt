@@ -2,9 +2,17 @@ package com.example.easy_video_editor.utils
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
+import android.media.MediaMuxer
 import android.net.Uri
-import java.io.File
+import android.util.Log
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.audio.SonicAudioProcessor
@@ -18,23 +26,21 @@ import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
-import java.io.FileOutputStream
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import androidx.core.graphics.scale
 import com.otaliastudios.transcoder.Transcoder
 import com.otaliastudios.transcoder.TranscoderListener
 import com.otaliastudios.transcoder.source.UriDataSource
 import com.otaliastudios.transcoder.strategy.DefaultAudioStrategy
 import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
+import java.io.File
+import java.io.IOException
+import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.core.net.toUri
-import android.media.MediaExtractor
-import android.media.MediaFormat
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 class VideoUtils {
@@ -1195,118 +1201,187 @@ class VideoUtils {
             }
         }
 
-        suspend fun ensureEvenDimensions(context: Context, videoPath: String): String {
-            // File operations on IO thread
-            withContext(Dispatchers.IO) {
-                require(File(videoPath).exists()) { "Input video file does not exist" }
-            }
+        // --- Constants for Repair Logic ---
+        private const val REPAIR_TAG = "VideoRepairUtil"
+        private const val IO_TIMEOUT_US = 10000L
 
-            val outputFile = withContext(Dispatchers.IO) {
-                File(context.cacheDir, "even_dimensions_video_${System.currentTimeMillis()}.mp4")
-                    .apply { if (exists()) delete() }
-            }
+        /**
+         * Checks a video for odd dimensions and, if found, repairs it by transcoding to
+         * even dimensions. If dimensions are already even, it returns the original path.
+         * This is the public-facing function to handle potentially problematic videos.
+         *
+         * @param context The application context.
+         * @param videoPath The absolute path to the input video file.
+         * @return The absolute path to the compliant video file (either the original or a new, repaired file).
+         * @throws IOException if there's a problem with file I/O or media processing during repair.
+         */
+        suspend fun ensureEvenDimensions(context: Context, videoPath: String): String = withContext(Dispatchers.IO) {
+            val inputFile = File(videoPath)
+            require(inputFile.exists()) { "Input video file does not exist: $videoPath" }
 
-            // Get video dimensions
             val retriever = MediaMetadataRetriever()
-            val (originalWidth, originalHeight) = withContext(Dispatchers.IO) {
-                try {
-                    retriever.setDataSource(videoPath)
-                    val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
-                    val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
-                    width to height
-                } finally {
-                    retriever.release()
+            try {
+                retriever.setDataSource(inputFile.absolutePath)
+                val originalWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+                val originalHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+
+                // If dimensions are valid and even, no processing is needed.
+                if (originalWidth > 0 && originalHeight > 0 && originalWidth % 2 == 0 && originalHeight % 2 == 0) {
+                    Log.d(REPAIR_TAG, "Video dimensions are already even. No processing needed.")
+                    return@withContext videoPath
                 }
+
+                Log.d(REPAIR_TAG, "Video requires repair. Original dimensions: ${originalWidth}x${originalHeight}")
+                // Call the internal repair function.
+                return@withContext repairVideoWithEvenDimensions(context, retriever, videoPath, originalWidth, originalHeight)
+            } finally {
+                retriever.release()
             }
+        }
 
-            // Calculate new dimensions (make them even)
-            var newWidth = originalWidth
-            var newHeight = originalHeight
-            
-            if (newWidth % 2 != 0) newWidth++
-            if (newHeight % 2 != 0) newHeight++
+        /**
+         * Internal logic to transcode a video to even dimensions.
+         * This function manually extracts video frames, crops them to even dimensions, and re-encodes them.
+         * The audio track is copied directly without re-encoding.
+         */
+        @Throws(IOException::class)
+        private fun repairVideoWithEvenDimensions(context: Context, retriever: MediaMetadataRetriever, inputPath: String, originalWidth: Int, originalHeight: Int): String {
+            val outputFile = File(context.cacheDir, "repaired_video_${System.currentTimeMillis()}.mp4")
+            var muxer: MediaMuxer? = null
+            var videoEncoder: MediaCodec? = null
+            var audioExtractor: MediaExtractor? = null
 
-            // Calculate scale to maintain aspect ratio
-            val scaleX = newWidth.toFloat() / originalWidth
-            val scaleY = newHeight.toFloat() / originalHeight
+            try {
+                // Crop to the nearest even dimensions by subtracting 1 if odd.
+                val newWidth = originalWidth - (originalWidth % 2)
+                val newHeight = originalHeight - (originalHeight % 2)
+                if (newWidth <= 0 || newHeight <= 0) {
+                    throw IOException("Invalid video dimensions after cropping: ${newWidth}x${newHeight}")
+                }
 
-            // Transformer operations on Main thread
-            return withContext(Dispatchers.Main) {
-                suspendCancellableCoroutine { continuation ->
-                    val mediaItem =
-                        MediaItem.Builder().setUri(Uri.fromFile(File(videoPath))).build()
+                muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
-                    val editedMediaItem =
-                        EditedMediaItem.Builder(mediaItem)
-                            .setEffects(
-                                Effects(
-                                    emptyList(),
-                                    listOf(
-                                        ScaleAndRotateTransformation.Builder()
-                                            .setScale(scaleX, scaleY)
-                                            .build()
-                                    )
-                                )
-                            )
-                            .build()
+                // --- Video Setup ---
+                val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val totalDurationUs = durationStr!!.toLong() * 1000
+                val frameRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toIntOrNull()?.let { count ->
+                    if (totalDurationUs > 0) (count * 1_000_000L / totalDurationUs).toInt() else 30
+                } ?: 30
 
-                    val transformer =
-                        Transformer.Builder(context)
-                            .addListener(
-                                object : Transformer.Listener {
-                                    override fun onCompleted(
-                                        composition: Composition,
-                                        exportResult: ExportResult
-                                    ) {
-                                        if (continuation.isActive) {
-                                            continuation.resume(outputFile.absolutePath)
-                                        }
-                                    }
+                val videoFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, newWidth, newHeight).apply {
+                    setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+                    setInteger(MediaFormat.KEY_BIT_RATE, newWidth * newHeight * 5)
+                    setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
+                    setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+                }
 
-                                    override fun onError(
-                                        composition: Composition,
-                                        exportResult: ExportResult,
-                                        exportException: ExportException
-                                    ) {
-                                        if (continuation.isActive) {
-                                            continuation.resumeWithException(
-                                                VideoException(
-                                                    "Failed to adjust dimensions: ${exportException.message}",
-                                                    exportException
-                                                )
-                                            )
-                                        }
-                                        outputFile.delete()
-                                    }
-                                }
-                            )
-                            .build()
+                videoEncoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                videoEncoder.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                val inputSurface = videoEncoder.createInputSurface()
+                videoEncoder.start()
+                var videoTrackIndex = -1
+                val bufferInfo = MediaCodec.BufferInfo()
 
-                    transformer.start(editedMediaItem, outputFile.absolutePath)
+                // --- Audio Setup ---
+                audioExtractor = MediaExtractor().apply { setDataSource(inputPath) }
+                val audioTrackIndexInExtractor = findTrackIndex(audioExtractor, "audio/")
+                var audioTrackIndexInMuxer = -1
+                if (audioTrackIndexInExtractor != -1) {
+                    val audioFormat = audioExtractor.getTrackFormat(audioTrackIndexInExtractor)
+                    audioTrackIndexInMuxer = muxer.addTrack(audioFormat)
+                    audioExtractor.selectTrack(audioTrackIndexInExtractor)
+                }
 
-                    // Set up progress tracking
-                    val progressHolder = androidx.media3.transformer.ProgressHolder()
-                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-                    mainHandler.post(
-                        object : Runnable {
-                            override fun run() {
-                                val progressState = transformer.getProgress(progressHolder)
-                                if (progressHolder.progress >= 0) {
-                                    ProgressManager.getInstance().reportProgress(progressHolder.progress / 100.0)
-                                }
-                                if (progressState != Transformer.PROGRESS_STATE_NOT_STARTED) {
-                                    mainHandler.postDelayed(this, 200)
-                                }
-                            }
+                // --- Main Video Processing Loop ---
+                val frameIntervalUs = 1_000_000L / frameRate
+                var presentationTimeUs = 0L
+
+                while (presentationTimeUs < totalDurationUs) {
+                    val originalBitmap = retriever.getFrameAtTime(presentationTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    if (originalBitmap == null) {
+                        presentationTimeUs += frameIntervalUs
+                        continue
+                    }
+                    
+                    inputSurface.lockCanvas(null).also { canvas ->
+                        canvas.drawBitmap(originalBitmap, Rect(0, 0, newWidth, newHeight), Rect(0, 0, newWidth, newHeight), null)
+                        inputSurface.unlockCanvasAndPost(canvas)
+                    }
+                    originalBitmap.recycle()
+
+                    drainEncoder(videoEncoder, muxer, bufferInfo, false)?.let { newVideoTrack ->
+                        if(videoTrackIndex == -1) {
+                            videoTrackIndex = newVideoTrack
+                            // If audio track is also ready, start muxer
+                            if(audioTrackIndexInMuxer != -1) muxer.start()
                         }
-                    )
+                    }
+                    presentationTimeUs += frameIntervalUs
+                }
+                videoEncoder.signalEndOfInputStream()
+                drainEncoder(videoEncoder, muxer, bufferInfo, true)
 
-                    continuation.invokeOnCancellation {
-                        transformer.cancel()
-                        outputFile.delete()
+                // --- Audio Passthrough Loop ---
+                if (audioTrackIndexInExtractor != -1) {
+                     if (!isMuxerStarted(muxer)) muxer.start() // Start muxer if only audio track
+                    val audioBuffer = ByteBuffer.allocate(1024 * 1024)
+                    while (true) {
+                        val chunkSize = audioExtractor.readSampleData(audioBuffer, 0)
+                        if (chunkSize < 0) break
+                        muxer.writeSampleData(audioTrackIndexInMuxer, audioBuffer, MediaCodec.BufferInfo().apply {
+                            offset = 0; size = chunkSize; presentationTimeUs = audioExtractor.sampleTime; flags = audioExtractor.sampleFlags
+                        })
+                        audioExtractor.advance()
+                    }
+                }
+
+                return outputFile.absolutePath
+
+            } catch (e: Exception) {
+                Log.e(REPAIR_TAG, "Error during video repair", e)
+                outputFile.delete()
+                throw IOException("Failed to repair video", e)
+            } finally {
+                videoEncoder?.stop(); videoEncoder?.release()
+                audioExtractor?.release()
+                muxer?.stop(); muxer?.release()
+            }
+        }
+
+        private fun drainEncoder(encoder: MediaCodec, muxer: MediaMuxer, bufferInfo: MediaCodec.BufferInfo, endOfStream: Boolean): Int? {
+            var videoTrackIndex : Int? = null
+            if (endOfStream) encoder.signalEndOfInputStream()
+            while (true) {
+                when (val status = encoder.dequeueOutputBuffer(bufferInfo, IO_TIMEOUT_US)) {
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> if (!endOfStream) break
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrackIndex = muxer.addTrack(encoder.outputFormat)
+                    else -> {
+                        val encodedData = encoder.getOutputBuffer(status) ?: break
+                        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && bufferInfo.size != 0) {
+                            muxer.writeSampleData(videoTrackIndex ?: -1, encodedData, bufferInfo)
+                        }
+                        encoder.releaseOutputBuffer(status, false)
+                        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
                     }
                 }
             }
+            return videoTrackIndex
+        }
+
+        private fun findTrackIndex(extractor: MediaExtractor, mimePrefix: String): Int {
+            for (i in 0 until extractor.trackCount) {
+                if (extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)?.startsWith(mimePrefix) == true) return i
+            }
+            return -1
+        }
+
+        // Helper to check if muxer has been started, using reflection as there's no public API.
+        private fun isMuxerStarted(muxer: MediaMuxer): Boolean {
+            return try {
+                val field = muxer.javaClass.getDeclaredField("mState")
+                field.isAccessible = true
+                field.getInt(muxer) == 1 // MediaMuxer.MUXER_STATE_STARTED is 1
+            } catch (e: Exception) { false }
         }
     }
 }
