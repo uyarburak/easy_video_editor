@@ -32,6 +32,7 @@ import com.otaliastudios.transcoder.source.UriDataSource
 import com.otaliastudios.transcoder.strategy.DefaultAudioStrategy
 import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
@@ -942,7 +943,7 @@ class VideoUtils {
                         finalWidth = (height * aspectRatio).toInt()
                     }
 
-                    bitmap.scale(finalWidth, finalHeight)
+                    Bitmap.createScaledBitmap(bitmap, finalWidth, finalHeight, true)
                 } else {
                     bitmap
                 }
