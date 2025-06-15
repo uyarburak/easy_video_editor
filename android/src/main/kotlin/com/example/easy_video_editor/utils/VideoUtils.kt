@@ -1251,6 +1251,7 @@ class VideoUtils {
             var muxer: MediaMuxer? = null
             var videoEncoder: MediaCodec? = null
             var audioExtractor: MediaExtractor? = null
+            var muxerStarted = false
 
             try {
                 // Crop to the nearest even dimensions by subtracting 1 if odd.
@@ -1314,7 +1315,10 @@ class VideoUtils {
                         if(videoTrackIndex == -1) {
                             videoTrackIndex = newVideoTrack
                             // If audio track is also ready, start muxer
-                            if(audioTrackIndexInMuxer != -1) muxer.start()
+                            if(audioTrackIndexInMuxer != -1) {
+                                muxer.start()
+                                muxerStarted = true
+                            }
                         }
                     }
                     presentationTimeUs += frameIntervalUs
@@ -1324,7 +1328,10 @@ class VideoUtils {
 
                 // --- Audio Passthrough Loop ---
                 if (audioTrackIndexInExtractor != -1) {
-                     if (!isMuxerStarted(muxer)) muxer.start() // Start muxer if only audio track
+                    if (!muxerStarted) {
+                        muxer.start()
+                        muxerStarted = true
+                    }
                     val audioBuffer = ByteBuffer.allocate(1024 * 1024)
                     while (true) {
                         val chunkSize = audioExtractor.readSampleData(audioBuffer, 0)
@@ -1343,9 +1350,17 @@ class VideoUtils {
                 outputFile.delete()
                 throw IOException("Failed to repair video", e)
             } finally {
-                videoEncoder?.stop(); videoEncoder?.release()
+                videoEncoder?.stop()
+                videoEncoder?.release()
                 audioExtractor?.release()
-                muxer?.stop(); muxer?.release()
+                if (muxerStarted) {
+                    try {
+                        muxer?.stop()
+                    } catch (e: Exception) {
+                        Log.e(REPAIR_TAG, "Error stopping muxer", e)
+                    }
+                }
+                muxer?.release()
             }
         }
 
