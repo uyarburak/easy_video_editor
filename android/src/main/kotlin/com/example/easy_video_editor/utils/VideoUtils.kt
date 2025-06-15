@@ -1219,9 +1219,16 @@ class VideoUtils {
                 }
             }
 
-            // Ensure even dimensions
-            val newWidth = if (originalWidth % 2 == 0) originalWidth else originalWidth - 1
-            val newHeight = if (originalHeight % 2 == 0) originalHeight else originalHeight - 1
+            // Calculate new dimensions (make them even)
+            var newWidth = originalWidth
+            var newHeight = originalHeight
+            
+            if (newWidth % 2 != 0) newWidth++
+            if (newHeight % 2 != 0) newHeight++
+
+            // Calculate scale to maintain aspect ratio
+            val scaleX = newWidth.toFloat() / originalWidth
+            val scaleY = newHeight.toFloat() / originalHeight
 
             // Transformer operations on Main thread
             return withContext(Dispatchers.Main) {
@@ -1236,7 +1243,7 @@ class VideoUtils {
                                     emptyList(),
                                     listOf(
                                         ScaleAndRotateTransformation.Builder()
-                                            .setVideoSize(newWidth, newHeight)
+                                            .setScale(scaleX, scaleY)
                                             .build()
                                     )
                                 )
